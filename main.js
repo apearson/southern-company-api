@@ -36,9 +36,9 @@ function SouthernCompanyAPI(config){
     });
 
   self.printVars = ()=>{
-    console.log(`Username: ${self.username}`);
-    console.log(`Password: ${self.password}`);
-    console.log(`JWT: ${self.JWToken}`);
+    console.info(`Username: ${self.username}`);
+    console.info(`Password: ${self.password}`);
+    console.info(`JWT: ${self.JWToken}`);
   };
 
   /* Public Functions */
@@ -60,6 +60,9 @@ function SouthernCompanyAPI(config){
 
     /* Making Request */
     request(options, (error, response, body)=>{
+      /* Rejecting promise on any error */
+      if(error) reject(error);
+
       /* Parsing data */
       const data = JSON.parse(body.Data.Data).graphset[0];
 
@@ -93,11 +96,11 @@ function SouthernCompanyAPI(config){
         'acctNum':0000000000,
         'StartDate':startDate.format('M/D/Y'),
         'EndDate':endDate.format('M/D/Y'),
-        'PremiseNo':"000000000",
-        'ServicePointNo':"85626337",
-        'DataType':"Cost",
-        'OPCO':"APC",
-        'intervalBehavior':"Automatic",
+        'PremiseNo':'000000000',
+        'ServicePointNo':'85626337',
+        'DataType':'Cost',
+        'OPCO':'APC',
+        'intervalBehavior':'Automatic',
       }
     };
 
@@ -112,17 +115,21 @@ function SouthernCompanyAPI(config){
         'acctNum':0000000000,
         'StartDate':startDate.format('M/D/Y'),
         'EndDate':endDate.format('M/D/Y'),
-        'PremiseNo':"000000000",
-        'ServicePointNo':"85626337",
-        'DataType':"Usage",
-        'OPCO':"APC",
-        'intervalBehavior':"Automatic",
+        'PremiseNo':'000000000',
+        'ServicePointNo':'85626337',
+        'DataType':'Usage',
+        'OPCO':'APC',
+        'intervalBehavior':'Automatic',
       }
     };
 
     /* Making Request */
     request(costOptions, (costError, costResponse, costBody)=>{
       request(usageOptions, (usageError, usageResponse, usageBody)=>{
+        /* Rejecting promise on any error */
+        if(costError) reject(costError);
+        if(usageError) reject(usageError);
+
         /* Parsing data */
         const costData  = JSON.parse(costBody.Data.Data).graphset[0];
         const usageData = JSON.parse(usageBody.Data.Data).graphset[0];
@@ -139,12 +146,12 @@ function SouthernCompanyAPI(config){
           if(a[0] > b[0]) return 1;
           if(a[0] < b[0]) return -1;
           if(a[0] == b[0]) return 0;
-        })
+        });
         usageDataArray.sort((a,b)=>{
           if(a[0] > b[0]) return 1;
           if(a[0] < b[0]) return -1;
           if(a[0] == b[0]) return 0;
-        })
+        });
 
         /* Collecting Data */
         for(let i = 0; i < usageDataArray.length; i++){
@@ -159,7 +166,7 @@ function SouthernCompanyAPI(config){
         }
 
         /* Fulfilling promise */
-        resolve(results)
+        resolve(results);
       });
     });
   });
@@ -169,10 +176,11 @@ function SouthernCompanyAPI(config){
 const login = (username, password)=> new Promise((resolve, reject)=>{
   getLoginVars()
     .then((loginVars)=>{
-      return getScWebToken(loginVars, username, password)
+      return getScWebToken(loginVars, username, password);
     })
     .then(getJWToken)
-    .then(resolve);
+    .then(resolve)
+    .catch(reject);
 });
 
 const getLoginVars = ()=> new Promise((resolve, reject)=>{
@@ -197,17 +205,17 @@ const getLoginVars = ()=> new Promise((resolve, reject)=>{
 const getScWebToken = (loginVars, username, password)=> new Promise((resolve, reject)=>{
   /* Setting up request */
   var options = {
-      url: WebTokenURL,
-      method: 'POST',
-      form: {
-        '__VIEWSTATE': loginVars.viewstate,
-        '__VIEWSTATEENCRYPTED': '',
-        '__EVENTVALIDATION': loginVars.event_validation,
-        'ctl00$MainContent$txtUsername': username,
-        'ctl00$MainContent$txtPassword': password,
-        'ctl00$MainContent$btnLogin.x': 0,
-        'ctl00$MainContent$btnLogin.y': 0
-      }
+    url: WebTokenURL,
+    method: 'POST',
+    form: {
+      '__VIEWSTATE': loginVars.viewstate,
+      '__VIEWSTATEENCRYPTED': '',
+      '__EVENTVALIDATION': loginVars.event_validation,
+      'ctl00$MainContent$txtUsername': username,
+      'ctl00$MainContent$txtPassword': password,
+      'ctl00$MainContent$btnLogin.x': 0,
+      'ctl00$MainContent$btnLogin.y': 0
+    }
   };
 
   /* Making request */
@@ -221,7 +229,7 @@ const getScWebToken = (loginVars, username, password)=> new Promise((resolve, re
     const ScWebToken = ScWebToken_match[1];
 
     /* Fulfilling Promise */
-    resolve(ScWebToken)
+    resolve(ScWebToken);
   });
 
 });
@@ -236,7 +244,10 @@ const getJWToken = (ScWebToken)=> new Promise((resolve, reject)=>{
   };
 
   /* Making Request */
-  request(options, (error, response, body)=>{
+  request(options, (error, response)=>{
+    /* Rejecting promise on any error */
+    if(error) reject(error);
+
     /* Parsing out JWT */
     const ScJWToken_regex = /ScJwtToken=(.*);/;
     const ScJWToken_match = response.headers['set-cookie'][0].match(ScJWToken_regex);
