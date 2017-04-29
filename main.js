@@ -68,12 +68,23 @@ function SouthernCompanyAPI(){
 
       /* Pulling usable data */
       data.forEach((account)=>{
+        let company = 'SCS';
+
+        /* Calulating Company */
+        switch(account.Company){
+          case 1: company = 'APC'; break;
+          case 2: company = 'GPC'; break;
+          case 3: company = 'GULF'; break;
+          case 4: company = 'MPC'; break;
+        }
+
+        /* Generating Account Object and pushing onto accounts array */
         self.accounts.push({
           name: account.Description,
           primary: account.PrimaryAccount,
           accountNumber: account.AccountNumber,
           premiseNumber: account.PremiseNumber,
-          company: account.Company
+          company: company
         });
       });
 
@@ -171,7 +182,7 @@ function SouthernCompanyAPI(){
               'PremiseNo':account.premiseNumber,
               'ServicePointNo':account.servicePointNumber,
               'DataType':'Cost',
-              'OPCO':'APC',
+              'OPCO':account.company,
               'intervalBehavior':'Automatic',
             }
           };
