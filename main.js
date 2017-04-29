@@ -5,8 +5,9 @@ const util = require('util');
 const request = require('request');
 const moment = require('moment');
 
-const LoginURL = 'https://webauth.southernco.com/login.aspx?WL_Type=E&WL_AppId=OCCEvo&WL_ReturnMethod=FV&WL_Expire=1&ForgotInfoLink=undefined&ForgotPasswordLink=undefined&WL_ReturnUrl=https%3A%2F%2Fcustomerservice2.southerncompany.com%3A443%2FAccount%2FLogginValidated%3FReturnUrl%3D%2FLogin';
-const WebTokenURL = 'https://webauth.southernco.com/login.aspx?WL_ReturnUrl=https%3a%2f%2fcustomerservice2.southerncompany.com%3a443%2fAccount%2fLogginValidated%3fReturnUrl%3d%2fLogin';
+const LoginURL = 'https://webauth.southernco.com/login.aspx?WL_ReturnUrl=null';
+const WebTokenURL = 'https://webauth.southernco.com/login.aspx?WL_ReturnUrl=null';
+
 const JWT_URL = 'https://customerservice2.southerncompany.com/Account/LogginValidated/JwtToken';
 const Monthly_Data_URL = 'https://customerservice2api.southerncompany.com/api/MyPowerUsage/MonthlyGraph';
 const Daily_Data_URL = 'https://customerservice2api.southerncompany.com/api/MyPowerUsage/DailyGraph';
@@ -71,7 +72,8 @@ function SouthernCompanyAPI(){
           name: account.Description,
           primary: account.PrimaryAccount,
           accountNumber: account.AccountNumber,
-          premiseNumber: account.PremiseNumber
+          premiseNumber: account.PremiseNumber,
+          company: account.Company
         });
       });
 
@@ -80,132 +82,202 @@ function SouthernCompanyAPI(){
     });
   });
   this.getMonthlyData = ()=> new Promise((resolve, reject)=>{
-    /* Setting up request */
-    var options = {
-      url: Monthly_Data_URL,
-      method: 'POST',
-      auth:{
-        'bearer': self.JWToken
-      },
-      json:{
-        'accountNumber':'1776277225',
-        'PremiseNo':'177627700',
-        'OnlyShowCostAndUsage':'false',
-        'IsWidget':'false'
-      }
-    };
+    /* Setting up return array */
+    let promises = [];
 
-    /* Making Request */
-    request(options, (error, response, body)=>{
-      /* Rejecting promise on any error */
-      if(error) reject(error);
+    /* Looping over accounts */
+    self.accounts.forEach((account)=>{
+      /* Creating new promise */
+      promises.push(new Promise((resolve, reject)=>{
+        /* Setting up request */
+        var options = {
+          url: Monthly_Data_URL,
+          method: 'POST',
+          auth:{
+            'bearer': self.JWToken
+          },
+          json:{
+            'accountNumber': account.accountNumber,
+            'PremiseNo': account.premiseNumber,
+            'OnlyShowCostAndUsage':'false',
+            'IsWidget':'false'
+          }
+        };
 
-      /* Parsing data */
-      const data = JSON.parse(body.Data.Data).graphset[0];
+        /* Making Request */
+        request(options, (error, response, body)=>{
+          /* Rejecting promise on any error */
+          if(error) reject(error);
 
-      /* Resulting Array */
-      let result = [];
+          /* Parsing data */
+          const data = JSON.parse(body.Data.Data).graphset[0];
 
-      /* Collecting Data */
-      for(let i = 0; i < data['scale-x'].labels.length; i++){
-        result.push({
-          date: data['scale-x'].labels[i],
-          cost: data.series[0].values[i],
-          kWh: data.series[1].values[i],
-          bill: data.series[2].values[i]
+          /* Resulting Array */
+          let result = {
+            name: account.name,
+            accountNumber: account.accountNumber,
+            data: [],
+          };
+
+          /* Parse Data if there is data to parse */
+          if(data['scale-x'] !== undefined){
+            for(let i = 0; i < data['scale-x'].labels.length; i++){
+              result.data.push({
+                date: data['scale-x'].labels[i],
+                cost: data.series[0].values[i],
+                kWh: data.series[1].values[i],
+                bill: data.series[2].values[i]
+              });
+            }
+          }
+
+          /* Sending back results we parsed */
+          resolve(result);
         });
-      }
-      resolve(result);
+
+      }));
+
+      /* Wating for all account promises to resolve */
+      Promise.all(promises).then(resolve).catch(reject);
+
     });
   });
   this.getDailyData = (begin, end)=> new Promise((resolve, reject)=>{
     let startDate = moment(begin, 'M/D/Y').subtract(1, 'days');
     let endDate = moment(end, 'M/D/Y');
 
-    /* Setting up Cost request */
-    var costOptions = {
-      url: Daily_Data_URL,
-      method: 'POST',
-      auth:{
-        'bearer': self.JWToken
-      },
-      json:{
-        'acctNum':1776277225,
-        'StartDate':startDate.format('M/D/Y'),
-        'EndDate':endDate.format('M/D/Y'),
-        'PremiseNo':'177627700',
-        'ServicePointNo':'85626337',
-        'DataType':'Cost',
-        'OPCO':'APC',
-        'intervalBehavior':'Automatic',
-      }
-    };
+    let promises = [];
 
-    /* Setting up Usage request */
-    var usageOptions = {
-      url: Daily_Data_URL,
-      method: 'POST',
-      auth:{
-        'bearer': self.JWToken
-      },
-      json:{
-        'acctNum':1776277225,
-        'StartDate':startDate.format('M/D/Y'),
-        'EndDate':endDate.format('M/D/Y'),
-        'PremiseNo':'177627700',
-        'ServicePointNo':'85626337',
-        'DataType':'Usage',
-        'OPCO':'APC',
-        'intervalBehavior':'Automatic',
-      }
-    };
+    /* Looping over accounts */
+    self.accounts.forEach((account)=>{
+      promises.push(new Promise((resolve, reject)=>{
 
-    /* Making Request */
-    request(costOptions, (costError, costResponse, costBody)=>{
-      request(usageOptions, (usageError, usageResponse, usageBody)=>{
-        /* Rejecting promise on any error */
-        if(costError) reject(costError);
-        if(usageError) reject(usageError);
+        /* Setting up request promise array */
+        let requestPromises = [];
 
-        /* Parsing data */
-        const costData  = JSON.parse(costBody.Data.Data).graphset[0];
-        const usageData = JSON.parse(usageBody.Data.Data).graphset[0];
+        /* Creating promise for cost request */
+        requestPromises.push(new Promise((resolve, reject)=>{
+          /* Setting up Cost request */
+          var costOptions = {
+            url: Daily_Data_URL,
+            method: 'POST',
+            auth:{
+              'bearer': self.JWToken
+            },
+            json:{
+              'acctNum':account.accountNumber,
+              'StartDate':startDate.format('M/D/Y'),
+              'EndDate':endDate.format('M/D/Y'),
+              'PremiseNo':account.premiseNumber,
+              'ServicePointNo':account.servicePointNumber,
+              'DataType':'Cost',
+              'OPCO':'APC',
+              'intervalBehavior':'Automatic',
+            }
+          };
 
-        /* Resulting Array */
-        let results = [];
+          /* Making cost request */
+          request(costOptions, (error, response, body)=>{
+            /* Rejecting promise on any error */
+            if(error) reject(error);
 
-        /* Merging Weekday and Weekend data arrays */
-        let costDataArray = costData.series[1].values.concat(costData.series[2].values);
-        let usageDataArray = usageData.series[1].values.concat(usageData.series[2].values);
+            /* Parse data */
+            const costData  = JSON.parse(body.Data.Data).graphset[0];
 
-        /* Sorting Data Arrays on dates */
-        costDataArray.sort((a,b)=>{
-          if(a[0] > b[0]) return 1;
-          if(a[0] < b[0]) return -1;
-          if(a[0] == b[0]) return 0;
-        });
-        usageDataArray.sort((a,b)=>{
-          if(a[0] > b[0]) return 1;
-          if(a[0] < b[0]) return -1;
-          if(a[0] == b[0]) return 0;
-        });
+            /* Merging Weekday and Weekend data arrays */
+            let costDataArray = costData.series[1].values.concat(costData.series[2].values);
 
-        /* Collecting Data */
-        for(let i = 0; i < usageDataArray.length; i++){
-          let currentDate = moment(startDate).add(i + 1, 'days');
+            /* Sorting Data Array on dates */
+            costDataArray.sort((a,b)=>{
+              if(a[0] > b[0]) return 1;
+              if(a[0] < b[0]) return -1;
+              if(a[0] == b[0]) return 0;
+            });
 
-          //Compile Result
-          results.push({
-            date: currentDate.format('M/D/Y'),
-            cost: costDataArray[i][1],
-            kWh: usageDataArray[i][1],
+            /* Sending back cost data array */
+            resolve(costDataArray);
           });
-        }
+        }));
 
-        /* Fulfilling promise */
-        resolve(results);
-      });
+        /* Creating promise for usage request */
+        requestPromises.push(new Promise((resolve, reject)=>{
+          /* Setting up Usage request */
+          var usageOptions = {
+            url: Daily_Data_URL,
+            method: 'POST',
+            auth:{
+              'bearer': self.JWToken
+            },
+            json:{
+              'acctNum':account.accountNumber,
+              'StartDate':startDate.format('M/D/Y'),
+              'EndDate':endDate.format('M/D/Y'),
+              'PremiseNo':account.premiseNumber,
+              'ServicePointNo':account.servicePointNumber,
+              'DataType':'Usage',
+              'OPCO':'APC',
+              'intervalBehavior':'Automatic',
+            }
+          };
+
+          /* Making usage request */
+          request(usageOptions, (error, response, body)=>{
+            /* Rejecting promise on any error */
+            if(error) reject(error);
+
+            /* Parsing data */
+            const usageData = JSON.parse(body.Data.Data).graphset[0];
+
+            /* Merging Weekday and Weekend data arrays */
+            let usageDataArray = usageData.series[1].values.concat(usageData.series[2].values);
+
+            /* Sorting Data Array on dates */
+            usageDataArray.sort((a,b)=>{
+              if(a[0] > b[0]) return 1;
+              if(a[0] < b[0]) return -1;
+              if(a[0] == b[0]) return 0;
+            });
+
+            /* Sending back cost data array */
+            resolve(usageDataArray);
+
+          });
+
+        }));
+
+
+        /* Wating for all account promises to resolve */
+        Promise.all(requestPromises).then((data)=>{
+
+          /* Setting up promise array */
+          let result = {
+            name: account.name,
+            accountNumber: account.accountNumber,
+            data: [],
+          };
+
+          /* Collecting Data */
+          for(let i = 0; i < data[0].length; i++){
+            let currentDate = moment(startDate).add(i + 1, 'days');
+
+            //Compile Result
+            result.data.push({
+              date: currentDate.format('M/D/Y'),
+              cost: data[0][i][1],
+              kWh: data[1][i][1],
+            });
+          }
+
+          resolve(result);
+
+        }).catch(reject);
+      }));
     });
+
+    /* Wating for all account promises to resolve */
+    Promise.all(promises).then((data)=>{
+      resolve(data);
+    }).catch(reject);
   });
 
 
