@@ -1,132 +1,285 @@
-'use Strict';
-
-const EventEmitter = require('events').EventEmitter;
-const util = require('util');
-const request = require('request');
+/* Libraries */
+const EventEmitter = require('events');
+const axios = require('axios');
 const moment = require('moment');
 
-const LoginURL = 'https://webauth.southernco.com/login.aspx?WL_ReturnUrl=null';
-const WebTokenURL = 'https://webauth.southernco.com/login.aspx?WL_ReturnUrl=null';
+/* URLs */
+const urls = {
+  loginPage: 'https://webauth.southernco.com/account/login',
+  LoginAPI: 'https://webauth.southernco.com/api/login',
+  ScJwtToken: 'https://customerservice2.southerncompany.com/Account/LogginValidated/JwtToken',
+  ServicePointNumber: 'https://customerservice2api.southerncompany.com/api/account/servicePointNumbers',
+  accounts: 'https://customerservice2api.southerncompany.com/api/account/getAllAccounts',
+  monthlyData: 'https://customerservice2api.southerncompany.com/api/MyPowerUsage/MonthlyGraph',
+  dailyData: 'https://customerservice2api.southerncompany.com/api/MyPowerUsage/DailyGraph'
+};
 
-const JWT_URL = 'https://customerservice2.southerncompany.com/Account/LogginValidated/JwtToken';
-const Monthly_Data_URL = 'https://customerservice2api.southerncompany.com/api/MyPowerUsage/MonthlyGraph';
-const Daily_Data_URL = 'https://customerservice2api.southerncompany.com/api/MyPowerUsage/DailyGraph';
-const Accounts_URL = 'https://customerservice2api.southerncompany.com/api/account/getAllAccounts';
-const ServicePointNumbers_URL = 'https://customerservice2api.southerncompany.com/api/account/servicePointNumbers/';
+/* Object Class */
+module.exports = class SouthernCompanyAPI extends EventEmitter{
+  /* Constructor */
+  constructor(config){
+    /* Constructing parent class */
+    super();
 
-/* Constructor */
-function SouthernCompanyAPI(){
-  /* Closure */
-  const self = this;
+    /* Saving config */
+    this.config = config;
 
-  /* Storing Configuration */
-  self.JWToken;
-  self.accounts = [];
+    this.getRequestVerificationToken()
+      .then((RequestVerificationToken)=>{
+        /* Saving Token */
+        this.RequestVerificationToken = RequestVerificationToken;
 
-  /* Debug Functions */
-  this.printVars = ()=>{
-    console.info('JWT:',self.JWToken);
-    console.info('Accounts:',self.accounts);
-  };
-
-  /* Public Functions */
-  this.login = (config)=> new Promise((resolve, reject)=>{
-    self.getLoginVars()
-      .then((loginVars)=>{
-        return self.getScWebToken(loginVars, config.username, config.password);
+        /* Passing token forward */
+        return RequestVerificationToken;
       })
-      .then(self.getJWToken)
-      .then((JWToken)=>{
-        self.JWToken = JWToken;
-        return JWToken;
+      .then((RequestVerificationToken)=> this.makeLoginRequest(RequestVerificationToken, this.config.username, this.config.password))
+      .then((ScWebToken)=>{
+        /* Saving Token */
+        this.ScWebToken = ScWebToken;
+
+        /* Passing ScWebToken forward */
+        return ScWebToken;
       })
-      .then(self.getAccounts)
-      .then(self.getServicePointNumbers)
+      .then(this.makeJwtRequest)
+      .then((ScJwtToken)=>{
+        /* Saving Token */
+        this.ScJwtToken = ScJwtToken;
+
+        /* Passing token forward */
+        return ScJwtToken;
+      })
+      .then(()=> this.getAccounts())
+      .then((accounts)=>{
+        /* Saving Account */
+        this.accounts = accounts;
+
+        return accounts;
+      })
+      .then((accounts)=> this.getServicePointNumbers(accounts))
       .then(()=>{
-        self.emit('login');
+        /* Emitting Login */
+        this.emit('login');
       })
-      .then(resolve)
-      .catch(reject);
-  });
-  this.getAccounts = ()=> new Promise((resolve, reject)=>{
-    /* Setting up request */
-    const options = {
-      url: Accounts_URL,
+      .catch((error)=>{
+        /* Emitting error event */
+        this.emit('error', error);
+      });
+  }
+
+  /* Login Helper Methods */
+  getRequestVerificationToken(){ return new Promise((resolve, reject)=>{
+    /* Config for request */
+    const request = {
       method: 'GET',
-      auth:{
-        'bearer': self.JWToken
+      url: urls.loginPage,
+      responseType: 'document',
+    };
+
+    /* Making request */
+    axios(request).catch(reject)
+      .then((response)=>{
+        /* Creating regex to pull RequestVerificationToken */
+        const regex = /webAuth\.aft = '(\S+)'/i;
+
+        /* Searching with regex and getting match */
+        const RequestVerificationToken = response.data.match(regex)[1];
+
+        /* Check to see if token exists */
+        if(!RequestVerificationToken){
+          reject('Failed to get RequestVerificationToken');
+        }
+
+        /* Fulfilling Promise */
+        resolve(RequestVerificationToken);
+      });
+  });}
+  makeLoginRequest(RequestVerificationToken, username, password){ return new Promise((resolve, reject)=>{
+    /* Config for request */
+    const request = {
+      method: 'POST',
+      url: urls.LoginAPI,
+      responseType: 'JSON',
+      headers:{
+        RequestVerificationToken: RequestVerificationToken
+      },
+      data:{
+        username: username,
+        password: password,
+        params:{
+          ReturnUrl: 'null',
+        }
       }
     };
 
     /* Making request */
-    request(options, (error, response, body)=>{
-      /* Rejecting promise on any error */
-      if(error) reject(error);
+    axios(request).catch(reject)
+      .then((response)=>{
+        /* Creating regex to pull ScWebToken */
+        const regex = /<input type='hidden' name='ScWebToken' value='(\S+)'>/i;
 
-      /* Parsing data */
-      const data = JSON.parse(body).Data;
+        /* Searching with regex and getting match */
+        const ScWebToken = response.data.data.html.match(regex)[1];
 
-      /* Pulling usable data */
-      data.forEach((account)=>{
-        let company = 'SCS';
-
-        /* Calulating Company */
-        switch(account.Company){
-          case 1: company = 'APC'; break;
-          case 2: company = 'GPC'; break;
-          case 3: company = 'GULF'; break;
-          case 4: company = 'MPC'; break;
+        /* Check to see if token exists */
+        if(!ScWebToken){
+          reject('Failed to get ScWebToken');
         }
 
-        /* Generating Account Object and pushing onto accounts array */
-        self.accounts.push({
-          name: account.Description,
-          primary: account.PrimaryAccount,
-          accountNumber: account.AccountNumber,
-          premiseNumber: account.PremiseNumber,
-          company: company
-        });
+        /* Fulfilling Promise */
+        resolve(ScWebToken);
       });
 
-      /* Fulfilling Promise */
-      resolve(self.accounts);
-    });
-  });
-  this.getMonthlyData = ()=> new Promise((resolve, reject)=>{
-    /* Setting up return array */
-    let promises = [];
+  });}
+  makeJwtRequest(ScWebToken){ return new Promise((resolve, reject)=>{
+    /* Config for request */
+    const request = {
+      method: 'GET',
+      url: urls.ScJwtToken,
+      responseType: 'JSON',
+      headers:{
+        Cookie: `ScWebToken=${ScWebToken}`
+      }
+    };
 
-    /* Looping over accounts */
-    self.accounts.forEach((account)=>{
-      /* Creating new promise */
-      promises.push(new Promise((resolve, reject)=>{
-        /* Setting up request */
-        var options = {
-          url: Monthly_Data_URL,
-          method: 'POST',
-          auth:{
-            'bearer': self.JWToken
-          },
-          json:{
-            'accountNumber': account.accountNumber,
-            'PremiseNo': account.premiseNumber,
-            'OnlyShowCostAndUsage':'false',
-            'IsWidget':'false'
+    /* Making request */
+    axios(request).catch(reject)
+      .then((response)=>{
+        /* Creating regex to pull ScWebToken */
+        const regex = /ScJwtToken=(.*);/i;
+
+        /* Searching with regex and getting match */
+        const ScJwtToken = response.headers['set-cookie'][0].match(regex)[1];
+
+        resolve(ScJwtToken);
+
+        /* Check to see if token exists */
+        if(!ScJwtToken){
+          reject('Failed to get ScJwtToken');
+        }
+
+        /* Fulfilling Promise */
+        resolve(ScJwtToken);
+      });
+  });}
+  getAccounts(){ return new Promise((resolve, reject)=>{
+    /* Config for request */
+    const request = {
+      method: 'GET',
+      url: urls.accounts,
+      responseType: 'JSON',
+      headers:{
+        Authorization: `bearer ${this.ScJwtToken}`
+      }
+    };
+
+    /* Making request */
+    axios(request).catch(reject)
+      .then((response)=>{
+        /* Holder for accounts */
+        const accounts = [];
+
+        /* Pulling usable data */
+        response.data.Data.forEach((account)=>{
+          let company = 'SCS';
+
+          /* Calulating Company */
+          switch(account.Company){
+            case 1: company = 'APC'; break;
+            case 2: company = 'GPC'; break;
+            case 3: company = 'GULF'; break;
+            case 4: company = 'MPC'; break;
           }
-        };
 
-        /* Making Request */
-        request(options, (error, response, body)=>{
-          /* Rejecting promise on any error */
-          if(error) reject(error);
+          /* Generating Account Object and pushing onto accounts array */
+          accounts.push({
+            name: account.Description,
+            primary: account.PrimaryAccount,
+            accountNumber: account.AccountNumber,
+            premiseNumber: account.PremiseNumber,
+            company: company
+          });
+        });
 
-          /* Parsing data */
-          const data = JSON.parse(body.Data.Data).graphset[0];
+        /* Fulfilling Promise */
+        resolve(accounts);
+      });
+  });}
+  getServicePointNumbers(accounts){ return new Promise((resolve, reject)=>{
+    /*  Requests holder */
+    const requests = [];
+
+    /* Looping over all accounts to generate requests */
+    accounts.forEach((account)=>{
+      /* Creating a new request for account and pushing onto queue */
+      const request = {
+        method: 'GET',
+        url: `${urls.ServicePointNumber}/${account.accountNumber}`,
+        responseType: 'JSON',
+        headers:{
+          Authorization: `bearer ${this.ScJwtToken}`
+        }
+      };
+
+      /* Making and storing request */
+      requests.push(axios(request));
+    });
+
+    /* Waiting on all requests */
+    axios.all(requests).catch(reject)
+      .then((responses)=>{
+        /* Looping through all responses to assign service numbers */
+        responses.forEach((response, index)=>{
+          accounts[index].servicePointNumber = response.data.ServicePointNumber;
+          accounts[index].premiseNumber = response.data.PremiseNumber;
+        });
+
+        /* Resolving Promise */
+        resolve(accounts);
+      });
+  });}
+
+  /* Data collection methods */
+  getMonthlyData(){ return new Promise((resolve, reject)=>{
+    /*  Requests holder */
+    let requests = [];
+
+    /* Looping over accounts and generating requests */
+    this.accounts.forEach((account)=>{
+      /* Creating a new request for account and pushing onto queue */
+      const request = {
+        method: 'POST',
+        url: urls.monthlyData,
+        responseType: 'JSON',
+        headers:{
+          Authorization: `bearer ${this.ScJwtToken}`
+        },
+        data:{
+          'accountNumber': account.accountNumber,
+          'PremiseNo': account.premiseNumber,
+          'OnlyShowCostAndUsage':'false',
+          'IsWidget':'false'
+        }
+      };
+
+      /* Making and storing request */
+      requests.push(axios(request));
+    });
+
+    /* Waiting on all requests */
+    axios.all(requests).catch(reject)
+      .then((responses)=>{
+        /* Results holder */
+        const results = [];
+
+        /* Looping through all responses */
+        responses.forEach((response, index)=>{
+          /* Parsing data from graphset */
+          const data = JSON.parse(response.data.Data.Data).graphset[0];
 
           /* Resulting Array */
           let result = {
-            name: account.name,
-            accountNumber: account.accountNumber,
+            name: this.accounts[index].name,
+            accountNumber: this.accounts[index].accountNumber,
             data: [],
           };
 
@@ -142,278 +295,115 @@ function SouthernCompanyAPI(){
             }
           }
 
-          /* Sending back results we parsed */
-          resolve(result);
+          /* Adding result to results holder */
+          results.push(result);
         });
 
-      }));
-
-      /* Wating for all account promises to resolve */
-      Promise.all(promises).then(resolve).catch(reject);
-
-    });
-  });
-  this.getDailyData = (begin, end)=> new Promise((resolve, reject)=>{
+        /* Resolving Promise */
+        resolve(results);
+      });
+  });}
+  getDailyData(begin, end){ return new Promise((resolve, reject)=>{
+    /* Formating start and end date */
     let startDate = moment(begin, 'M/D/Y').subtract(1, 'days');
     let endDate = moment(end, 'M/D/Y');
 
-    let promises = [];
+    /* Requests holder */
+    const requests = [];
 
-    /* Looping over accounts */
-    self.accounts.forEach((account)=>{
-      promises.push(new Promise((resolve, reject)=>{
+    /* Looping over all accounts*/
+    this.accounts.forEach((account)=>{
+      /* Generating account promise */
+      requests.push(new Promise((resolve, reject)=>{
+        /* Account request holder */
+        const accountRequests = [];
 
-        /* Setting up request promise array */
-        let requestPromises = [];
+        /* Generating Cost Request */
+        const costRequest = {
+          method: 'POST',
+          url: urls.dailyData,
+          responseType: 'JSON',
+          headers:{
+            Authorization: `bearer ${this.ScJwtToken}`
+          },
+          data:{
+            'acctNum':account.accountNumber,
+            'StartDate':startDate.format('M/D/Y'),
+            'EndDate':endDate.format('M/D/Y'),
+            'PremiseNo':account.premiseNumber,
+            'ServicePointNo':account.servicePointNumber,
+            'DataType':'Cost',
+            'OPCO':account.company,
+            'intervalBehavior':'Automatic'
+          }
+        };
 
-        /* Creating promise for cost request */
-        requestPromises.push(new Promise((resolve, reject)=>{
-          /* Setting up Cost request */
-          var costOptions = {
-            url: Daily_Data_URL,
-            method: 'POST',
-            auth:{
-              'bearer': self.JWToken
-            },
-            json:{
-              'acctNum':account.accountNumber,
-              'StartDate':startDate.format('M/D/Y'),
-              'EndDate':endDate.format('M/D/Y'),
-              'PremiseNo':account.premiseNumber,
-              'ServicePointNo':account.servicePointNumber,
-              'DataType':'Cost',
-              'OPCO':account.company,
-              'intervalBehavior':'Automatic',
-            }
-          };
+        /* Generating Usage Request */
+        const usageRequest = {
+          method: 'POST',
+          url: urls.dailyData,
+          responseType: 'JSON',
+          headers:{
+            Authorization: `bearer ${this.ScJwtToken}`
+          },
+          data:{
+            'acctNum':account.accountNumber,
+            'StartDate':startDate.format('M/D/Y'),
+            'EndDate':endDate.format('M/D/Y'),
+            'PremiseNo':account.premiseNumber,
+            'ServicePointNo':account.servicePointNumber,
+            'DataType':'Usage',
+            'OPCO':account.company,
+            'intervalBehavior':'Automatic',
+          }
+        };
 
-          /* Making cost request */
-          request(costOptions, (error, response, body)=>{
-            /* Rejecting promise on any error */
-            if(error) reject(error);
+        /* Making and storing cost and usage requests */
+        accountRequests.push(axios(costRequest));
+        accountRequests.push(axios(usageRequest));
 
-            /* Parse data */
-            const costData  = JSON.parse(body.Data.Data).graphset[0];
+        /* Waiting on cost and usage requests */
+        axios.all(accountRequests).catch(reject)
+          .then((responses)=>{
+            /* Parsing graph data */
+            const costData  = JSON.parse(responses[0].data.Data.Data).graphset[0];
+            const usageData = JSON.parse(responses[1].data.Data.Data).graphset[0];
 
             /* Merging Weekday and Weekend data arrays */
             let costDataArray = costData.series[1].values.concat(costData.series[2].values);
-
-            /* Sorting Data Array on dates */
-            costDataArray.sort((a,b)=>{
-              if(a[0] > b[0]) return 1;
-              if(a[0] < b[0]) return -1;
-              if(a[0] == b[0]) return 0;
-            });
-
-            /* Sending back cost data array */
-            resolve(costDataArray);
-          });
-        }));
-
-        /* Creating promise for usage request */
-        requestPromises.push(new Promise((resolve, reject)=>{
-          /* Setting up Usage request */
-          var usageOptions = {
-            url: Daily_Data_URL,
-            method: 'POST',
-            auth:{
-              'bearer': self.JWToken
-            },
-            json:{
-              'acctNum':account.accountNumber,
-              'StartDate':startDate.format('M/D/Y'),
-              'EndDate':endDate.format('M/D/Y'),
-              'PremiseNo':account.premiseNumber,
-              'ServicePointNo':account.servicePointNumber,
-              'DataType':'Usage',
-              'OPCO':'APC',
-              'intervalBehavior':'Automatic',
-            }
-          };
-
-          /* Making usage request */
-          request(usageOptions, (error, response, body)=>{
-            /* Rejecting promise on any error */
-            if(error) reject(error);
-
-            /* Parsing data */
-            const usageData = JSON.parse(body.Data.Data).graphset[0];
-
-            /* Merging Weekday and Weekend data arrays */
             let usageDataArray = usageData.series[1].values.concat(usageData.series[2].values);
 
             /* Sorting Data Array on dates */
-            usageDataArray.sort((a,b)=>{
-              if(a[0] > b[0]) return 1;
-              if(a[0] < b[0]) return -1;
-              if(a[0] == b[0]) return 0;
-            });
+            const normalSort = (a,b)=>{ if(a[0] > b[0]) return 1; if(a[0] > b[0]) return 1; if(a[0] == b[0]) return 0; };
+            costDataArray.sort(normalSort);
+            usageDataArray.sort(normalSort);
 
-            /* Sending back cost data array */
-            resolve(usageDataArray);
+            /* Account result object */
+            let result = {
+              name: account.name,
+              accountNumber: account.accountNumber,
+              data: [],
+            };
 
+            /* Building result data */
+            for(let i = 0; i < costDataArray.length; i++){
+              let currentDate = moment(startDate).add(i + 1, 'days');
+
+              /* Compile all data into result */
+              result.data.push({
+                date: currentDate.format('M/D/Y'),
+                cost: costDataArray[i][1],
+                kWh: usageDataArray[i][1],
+              });
+            }
+
+            resolve(result);
           });
 
-        }));
-
-
-        /* Wating for all account promises to resolve */
-        Promise.all(requestPromises).then((data)=>{
-
-          /* Setting up promise array */
-          let result = {
-            name: account.name,
-            accountNumber: account.accountNumber,
-            data: [],
-          };
-
-          /* Collecting Data */
-          for(let i = 0; i < data[0].length; i++){
-            let currentDate = moment(startDate).add(i + 1, 'days');
-
-            //Compile Result
-            result.data.push({
-              date: currentDate.format('M/D/Y'),
-              cost: data[0][i][1],
-              kWh: data[1][i][1],
-            });
-          }
-
-          resolve(result);
-
-        }).catch(reject);
       }));
     });
 
-    /* Wating for all account promises to resolve */
-    Promise.all(promises).then((data)=>{
-      resolve(data);
-    }).catch(reject);
-  });
-
-
-  /* Semi Public Functions */
-  this.getLoginVars = ()=> new Promise((resolve, reject)=>{
-    request(LoginURL,(error, response, body)=>{
-      /* Rejecting Promise on HTTP error */
-      if(error) reject(error);
-
-      /* View State */
-      const viewstate_regex = /<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="(.*)" \/>/;
-      const viewstate_match = body.match(viewstate_regex);
-      const viewstate = viewstate_match[1];
-
-      /* Event Validation */
-      const event_validation_regex = /<input type="hidden" name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="(.*)" \/>/;
-      const event_validation_match = body.match(event_validation_regex);
-      const event_validation = event_validation_match[1];
-
-      /* Fulfilling Promise */
-      resolve({viewstate,event_validation});
-    });
-  });
-  this.getScWebToken = (loginVars, username, password)=> new Promise((resolve, reject)=>{
-    /* Setting up request */
-    var options = {
-      url: WebTokenURL,
-      method: 'POST',
-      form: {
-        '__VIEWSTATE': loginVars.viewstate,
-        '__VIEWSTATEENCRYPTED': '',
-        '__EVENTVALIDATION': loginVars.event_validation,
-        'ctl00$MainContent$txtUsername': username,
-        'ctl00$MainContent$txtPassword': password,
-        'ctl00$MainContent$btnLogin.x': 0,
-        'ctl00$MainContent$btnLogin.y': 0
-      }
-    };
-
-    /* Making request */
-    request(options,(error, response, body)=>{
-      /* Rejecting promise on HTTP error */
-      if(error) reject(error);
-
-
-      /* Parsing out ScWebToken */
-      const ScWebToken_regex = /<INPUT TYPE='hidden' NAME='ScWebToken' value='(>.[0-9a-fA-F]+)'>/;
-      const ScWebToken_match = body.match(ScWebToken_regex);
-      const ScWebToken = ScWebToken_match[1];
-
-      /* Fulfilling Promise */
-      resolve(ScWebToken);
-    });
-
-  });
-  this.getJWToken = (ScWebToken)=> new Promise((resolve, reject)=>{
-    /* Setting up request */
-    var options = {
-      url: JWT_URL,
-      method: 'GET',
-      headers: {
-        'Cookie':`ScWebToken=${encodeURIComponent(ScWebToken)}`
-      }
-    };
-
-    /* Making Request */
-    request(options, (error, response)=>{
-      /* Rejecting promise on any error */
-      if(error) reject(error);
-
-      /* Parsing out JWT */
-      const ScJWToken_regex = /ScJwtToken=(.*);/;
-      const ScJWToken_match = response.headers['set-cookie'][0].match(ScJWToken_regex);
-      const ScJWToken = ScJWToken_match[1];
-
-      /* Fulfilling Promise */
-      resolve(ScJWToken);
-    });
-  });
-  this.getServicePointNumbers = (accounts)=> new Promise((resolve, reject)=>{
-    /* Promise holder */
-    let promises = [];
-
-    /* Looping over accounts */
-    for(let i = 0; i < accounts.length; i++){
-      promises[i] = self.getServicePointNumber(accounts[i]);
-    }
-
-    /* Waiting for all promises to complete */
-    Promise.all(promises)
-      .then((accounts)=>{
-        /* Updating stored accounts */
-        self.accounts = accounts;
-
-        /* Passing back accounts */
-        resolve(self.accounts);
-      })
-      .catch(reject);
-  });
-  this.getServicePointNumber = (account)=> new Promise((resolve, reject)=>{
-    /* Setting up request */
-    var options = {
-      url: ServicePointNumbers_URL + account.accountNumber,
-      method: 'GET',
-      auth:{
-        'bearer': self.JWToken
-      }
-    };
-
-    /* Making Request */
-    request(options, (error, response, body)=>{
-      /* Rejecting promise on any error */
-      if(error) reject(error);
-
-      const data = JSON.parse(body);
-
-      account.servicePointNumber = data.ServicePointNumber;
-      account.premiseNumber = data.PremiseNumber;
-
-      /* Fulfilling Promise */
-      resolve(account);
-    });
-  });
-}
-
-/* Constructor */
-util.inherits(SouthernCompanyAPI, EventEmitter);
-module.exports = SouthernCompanyAPI;
+    /* Waiting on all accounts requests and then fulfilling or rejecting */
+    Promise.all(requests).then(resolve).catch(reject);
+  });}
+};
