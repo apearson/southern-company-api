@@ -1,3 +1,8 @@
 #Node
 node_modules
+
+#Configuration
 config.json
+
+#Personal
+notes.txt

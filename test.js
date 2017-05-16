@@ -9,6 +9,8 @@ const AlabamaPower = new SoCo(config);
 
 /* Staring Login timer */
 console.time('Logged In');
+console.time('Monthly Data');
+console.time('Daily Data');
 
 /* Listening for events */
 AlabamaPower.on('error', console.error);
@@ -22,7 +24,7 @@ AlabamaPower.on('login', ()=>{
   /* Getting Monthly Data */
   AlabamaPower.getMonthlyData().catch(console.error)
     .then((data)=>{
-      console.info('Monthly Data');
+      console.timeEnd('Monthly Data');
       console.info(JSON.stringify(data));
       console.info();
     });
@@ -30,7 +32,7 @@ AlabamaPower.on('login', ()=>{
   /* Getting Daily Data */
   AlabamaPower.getDailyData(config.startDate, config.endDate).catch(console.error)
     .then((data)=>{
-      console.info('Daily Data');
+      console.timeEnd('Daily Data');
       console.info(JSON.stringify(data));
       console.info();
     });
