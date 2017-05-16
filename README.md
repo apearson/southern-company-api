@@ -97,7 +97,7 @@ AlabamaPower.getMonthlyData().catch(console.error)
 
 /* Result */
 [{
-  "name":"Apartment ",
+  "name":"Apartment",
   "accountNumber":0000000000,
   "data":[
     {"date":"02/17","cost":66.66,"kWh":416,"bill":87},
