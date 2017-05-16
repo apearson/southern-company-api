@@ -74,7 +74,7 @@ This method collects all monthly data on accounts from the time they were opened
 **Returns**  
   * Promise
 
-** Promise Return **  
+**Promise Return**  
   * `data` Each index of array is an account retrieved
       * `name` Name of the account
       * `accountNumber` Account number
