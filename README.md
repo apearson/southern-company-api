@@ -40,14 +40,14 @@ SouthernCompany.on('error', console.error);
 ## API
 
 ### Login
-Login with by passing username and password as a config object when instantiating.
+Login by passing username and password as a config object when instantiating.
 ```js
 /* Instantiating API */
 const SouthernCompany = new SouthernCompanyAPI({username: 'username', password: 'password'});
 ```
 
 ### Events
-The instantiated extends the [EventEmitter](https://nodejs.org/api/events.html) class built in in node. To listen for events use the `.on(eventName, listener)` method.
+The instantiated object extends the [EventEmitter](https://nodejs.org/api/events.html) class built into node. To listen for events use the `.on(eventName, listener)` method.
 
 Current Events:
   * login (On login success)
@@ -66,7 +66,7 @@ SouthernCompany.on('error', console.error);
 ### Data methods
 #### getMonthlyData()
 **Description**   
-This method collects all monthly data on accounts from the time they were opened to the last complete month of data.
+This method collects all monthly data on all accounts from the time they were opened to the last complete month of data.
 
 **Arguments**
   * None  
@@ -110,7 +110,7 @@ AlabamaPower.getMonthlyData().catch(console.error)
 
 #### getDailyData()
 **Description**   
-This method collects all monthly data on accounts from the time they were opened to the last complete month of data.
+This method collects daily data from the `startDate` provided to the `endDate` provided. 
 
 **Arguments**
   * `startDate` First date (MM/DD/YYY) to include in collection
