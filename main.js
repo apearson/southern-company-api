@@ -76,7 +76,7 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
     };
 
     /* Making request */
-    axios(request).catch(reject)
+    axios(request)
       .then((response)=>{
         /* Creating regex to pull RequestVerificationToken */
         const regex = /webAuth\.aft = '(\S+)'/i;
@@ -91,7 +91,8 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
 
         /* Fulfilling Promise */
         resolve(RequestVerificationToken);
-      });
+      })
+      .catch(reject);
   });}
   makeLoginRequest(RequestVerificationToken, username, password){ return new Promise((resolve, reject)=>{
     /* Config for request */
@@ -112,8 +113,14 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
     };
 
     /* Making request */
-    axios(request).catch(reject)
+    axios(request)
       .then((response)=>{
+        /* Checking if username or password is incorrect */
+        if(response.data.statusCode == 500){
+          reject('Incorrect Username/Password');
+          return;
+        }
+
         /* Creating regex to pull ScWebToken */
         const regex = /<input type='hidden' name='ScWebToken' value='(\S+)'>/i;
 
@@ -127,7 +134,8 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
 
         /* Fulfilling Promise */
         resolve(ScWebToken);
-      });
+      })
+      .catch(reject);
 
   });}
   makeJwtRequest(ScWebToken){ return new Promise((resolve, reject)=>{
@@ -142,7 +150,7 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
     };
 
     /* Making request */
-    axios(request).catch(reject)
+    axios(request)
       .then((response)=>{
         /* Creating regex to pull ScWebToken */
         const regex = /ScJwtToken=(.*);/i;
@@ -159,7 +167,8 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
 
         /* Fulfilling Promise */
         resolve(ScJwtToken);
-      });
+      })
+      .catch(reject);
   });}
   getAccounts(){ return new Promise((resolve, reject)=>{
     /* Config for request */
@@ -173,10 +182,10 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
     };
 
     /* Making request */
-    axios(request).catch(reject)
+    axios(request)
       .then((response)=>{
         /* Holder for accounts */
-        const accounts = [];
+        let accounts = [];
 
         /* Pulling usable data */
         response.data.Data.forEach((account)=>{
@@ -200,9 +209,15 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
           });
         });
 
+        /* Filter accounts if needed  */
+        if(this.config.account != null){
+          accounts = accounts.filter((account)=> account.accountNumber == this.config.account);
+        }
+
         /* Fulfilling Promise */
         resolve(accounts);
-      });
+      })
+      .catch(reject);
   });}
   getServicePointNumbers(accounts){ return new Promise((resolve, reject)=>{
     /*  Requests holder */
@@ -225,7 +240,7 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
     });
 
     /* Waiting on all requests */
-    axios.all(requests).catch(reject)
+    axios.all(requests)
       .then((responses)=>{
         /* Looping through all responses to assign service numbers */
         responses.forEach((response, index)=>{
@@ -235,7 +250,8 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
 
         /* Resolving Promise */
         resolve(accounts);
-      });
+      })
+      .catch(reject);
   });}
 
   /* Data collection methods */
@@ -266,7 +282,7 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
     });
 
     /* Waiting on all requests */
-    axios.all(requests).catch(reject)
+    axios.all(requests)
       .then((responses)=>{
         /* Results holder */
         const results = [];
@@ -301,12 +317,22 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
 
         /* Resolving Promise */
         resolve(results);
-      });
+      })
+      .catch(reject);
   });}
   getDailyData(begin, end){ return new Promise((resolve, reject)=>{
     /* Formating start and end date */
-    let startDate = moment(begin, 'M/D/Y').subtract(1, 'days');
+    let startDate = moment(begin, 'M/D/Y');
     let endDate = moment(end, 'M/D/Y');
+
+    /* Validating Dates */
+    if(startDate.isAfter(endDate)){
+      reject('Invalid Dates');
+      return;
+    }
+
+    /* Correcting for southern company date formatting */
+    startDate.subtract(1, 'days');
 
     /* Requests holder */
     const requests = [];
@@ -363,15 +389,24 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
         accountRequests.push(axios(usageRequest));
 
         /* Waiting on cost and usage requests */
-        axios.all(accountRequests).catch(reject)
+        axios.all(accountRequests)
           .then((responses)=>{
             /* Parsing graph data */
             const costData  = JSON.parse(responses[0].data.Data.Data).graphset[0];
             const usageData = JSON.parse(responses[1].data.Data.Data).graphset[0];
 
             /* Merging Weekday and Weekend data arrays */
-            let costDataArray = costData.series[1].values.concat(costData.series[2].values);
-            let usageDataArray = usageData.series[1].values.concat(usageData.series[2].values);
+            let costDataArray = [];
+            let usageDataArray = [];
+
+            /* Parsing data if it exist */
+            if(costData.series != null){
+              costDataArray = costData.series[1].values.concat(costData.series[2].values);
+            }
+
+            if(costData.series != null){
+              usageDataArray = usageData.series[1].values.concat(usageData.series[2].values);
+            }
 
             /* Sorting Data Array on dates */
             const normalSort = (a,b)=>{ if(a[0] > b[0]) return 1; if(a[0] > b[0]) return 1; if(a[0] == b[0]) return 0; };
@@ -387,18 +422,33 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
 
             /* Building result data */
             for(let i = 0; i < costDataArray.length; i++){
+              /* Plus one more to correct for southern company date format */
               let currentDate = moment(startDate).add(i + 1, 'days');
 
-              /* Compile all data into result */
-              result.data.push({
-                date: currentDate.format('M/D/Y'),
-                cost: costDataArray[i][1],
-                kWh: usageDataArray[i][1],
-              });
+              /* Checking that date falls within requested range */
+              if(currentDate.isSameOrAfter(startDate) && currentDate.isSameOrBefore(endDate)){
+
+                /* Compiling Data */
+                const dayData = {
+                  date: currentDate.format('M/D/Y'),
+                  cost: costDataArray[i][1],
+                  kWh: usageDataArray[i][1],
+                };
+
+                /* Removing data if data is partal invalid data */
+                if(costDataArray[i][1] == usageDataArray[i][1]){
+                  dayData.cost = null;
+                  dayData.kWh = null;
+                }
+
+                /* Put data into return array */
+                result.data.push(dayData);
+              }
             }
 
             resolve(result);
-          });
+          })
+          .catch(reject);
 
       }));
     });
