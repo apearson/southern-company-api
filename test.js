@@ -26,14 +26,15 @@ AlabamaPower.on('login', ()=>{
     .then((data)=>{
       console.timeEnd('Monthly Data');
       console.info(JSON.stringify(data));
-      console.info();
     });
 
   /* Getting Daily Data */
-  AlabamaPower.getDailyData(config.startDate, config.endDate).catch(console.error)
+  AlabamaPower.getDailyData(config.startDate, config.endDate)
     .then((data)=>{
       console.timeEnd('Daily Data');
       console.info(JSON.stringify(data));
-      console.info();
+    })
+    .catch((error)=>{
+      console.error(`Alabama Power Error: ${error}`);
     });
 });
