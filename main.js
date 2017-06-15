@@ -24,6 +24,55 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
     /* Saving config */
     this.config = config;
 
+    /* Starting connection */
+    this.connect();
+  }
+
+  /* Connection Methods */
+  connect(){
+    /* Start Login Process and on sucess eimit connected */
+    this.login()
+      .then(()=>{
+        /* Emitting connected */
+        this.emit('connected');
+
+        /* Setup Reconnection */
+        this.setupReconnect();
+      })
+      .catch((error)=>{
+        /* Emitting error event */
+        this.emit('error', error);
+      });
+  }
+  reconnect(){
+    /* Start Login Process and on success emit reconnection */
+    this.login()
+      .then(()=>{
+        /* Emitting connected */
+        this.emit('reconnected');
+
+        /* Setup Reconnection */
+        this.setupReconnect();
+      })
+      .catch((error)=>{
+        /* Emitting error event */
+        this.emit('error', error);
+      });
+  }
+  setupReconnect(){
+    /* Calulating Session Expiration time and time til expiration */
+    const ScJwtTokenBody = this.ScJwtToken.split('.')[1];
+    const ScJwtTokenData = JSON.parse(Buffer.from(ScJwtTokenBody, 'base64'));
+    const expirationTime = ScJwtTokenData.exp;
+    const timeTilExpiration = expirationTime - (new Date() / 1000);
+
+    /* Setting up reconnection for 1 hour before expiration */
+    setTimeout(()=>{ this.reconnect(); },(timeTilExpiration - (timeTilExpiration - 60)) * 1000);
+  }
+
+  /* Southern Company Login Method */
+  login(){ return new Promise((resolve, reject)=>{
+    /* Starting login process */
     this.getRequestVerificationToken()
       .then((RequestVerificationToken)=>{
         /* Saving Token */
@@ -32,7 +81,9 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
         /* Passing token forward */
         return RequestVerificationToken;
       })
-      .then((RequestVerificationToken)=> this.makeLoginRequest(RequestVerificationToken, this.config.username, this.config.password))
+      .then((RequestVerificationToken)=>{
+        return this.makeLoginRequest(RequestVerificationToken, this.config.username, this.config.password);
+      })
       .then((ScWebToken)=>{
         /* Saving Token */
         this.ScWebToken = ScWebToken;
@@ -56,15 +107,9 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
         return accounts;
       })
       .then((accounts)=> this.getServicePointNumbers(accounts))
-      .then(()=>{
-        /* Emitting Login */
-        this.emit('login');
-      })
-      .catch((error)=>{
-        /* Emitting error event */
-        this.emit('error', error);
-      });
-  }
+      .then(resolve)
+      .catch(reject);
+  });}
 
   /* Login Helper Methods */
   getRequestVerificationToken(){ return new Promise((resolve, reject)=>{

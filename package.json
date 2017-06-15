@@ -6,11 +6,11 @@
   "scripts": {
     "test": "node test.js"
   },
-  "author": "John Andrew Tyler Pearson",
+  "author": "John Andrew Tyler Pearson <andrew@apearson.io> (https://www.apearson.io)",
   "license": "MIT",
   "eslintConfig": {
     "env": {
-      "browser": true,
+      "node": true,
       "commonjs": true,
       "es6": true
     },

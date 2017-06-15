@@ -8,14 +8,14 @@ const SoCo = require('./main.js');
 const AlabamaPower = new SoCo(config);
 
 /* Staring Login timer */
-console.time('Logged In');
+console.time('Connected!');
 console.time('Monthly Data');
 console.time('Daily Data');
 
 /* Listening for events */
 AlabamaPower.on('error', console.error);
-AlabamaPower.on('login', ()=>{
-  console.timeEnd('Logged In');
+AlabamaPower.on('connected', ()=>{
+  console.timeEnd('Connected!');
   console.info('RequestVerificationToken:', AlabamaPower.RequestVerificationToken, '\n');
   console.info('ScWebToken:', AlabamaPower.ScWebToken, '\n');
   console.info('ScJwtToken:', AlabamaPower.ScJwtToken, '\n');
@@ -38,3 +38,7 @@ AlabamaPower.on('login', ()=>{
       console.error(`Alabama Power Error: ${error}`);
     });
 });
+
+AlabamaPower.on('reconnected', ()=>{
+  console.log('Reconnected!');
+})
