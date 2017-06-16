@@ -347,12 +347,20 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
           /* Parse Data if there is data to parse */
           if(data['scale-x'] !== undefined){
             for(let i = 0; i < data['scale-x'].labels.length; i++){
-              result.data.push({
+              /* Compiling always available data */
+              const month = {
                 date: data['scale-x'].labels[i],
                 cost: data.series[0].values[i],
-                kWh: data.series[1].values[i],
-                bill: data.series[2].values[i]
-              });
+                kWh: data.series[1].values[i]
+              };
+
+              /* Adding option data */
+              if(data.series.length > 2){
+                month.bill = data.series[2].values[i];
+              }
+
+              /* Saving data */
+              result.data.push(month);
             }
           }
 
