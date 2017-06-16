@@ -164,7 +164,7 @@ SouthernCompany.getDailyData('05/01/2017', '05/02/2017').catch(console.error)
   * `URL` https://webauth.southernco.com/account/login
 2. Grab the `RequestVerificationToken` from the login Page
   * `RequestVerificationToken` can be found at the bottom of the page in a script tag.  Inside the tag the `RequestVerificationToken` is assigned to `webauth.aft`
-3. Login Request is initialed
+3. Login Request is initialized
   * `Method` POST
   * `URL` https://webauth.southernco.com/api/login
   * `Headers`
