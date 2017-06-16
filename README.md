@@ -9,8 +9,8 @@ const SouthernCompanyAPI = require('southern-company-api');
 const SouthernCompany = new SouthernCompanyAPI({username: 'username', password: 'password'});
 
 /* Listening for login success */
-SouthernCompany.on('login', ()=>{
-  console.info('Logged In...');
+SouthernCompany.on('connected', ()=>{
+  console.info('Connected...');
 
   /* Displaying accounts found */
   console.info('Accounts:', SouthernCompany.accounts, '\n');
@@ -50,14 +50,21 @@ const SouthernCompany = new SouthernCompanyAPI({username: 'username', password: 
 The instantiated object extends the [EventEmitter](https://nodejs.org/api/events.html) class built into node. To listen for events use the `.on(eventName, listener)` method.
 
 Current Events:
-  * login (On login success)
+  * connected (On connection success)
+  * reconnected (On reconnection success)
   * error (On login failure)
 
 ```js
-/* Listening for login success */
-SouthernCompany.on('login', ()=>{
-  console.info('Logged In...');
+/* Listening for connection success */
+SouthernCompany.on('connected', ()=>{
+  console.info('Connected...');
 });
+
+/* Listening for connection success */
+SouthernCompany.on('reconnected', ()=>{
+  console.info('Reconnected...');
+});
+
 
 /* Listening for any errors */
 SouthernCompany.on('error', console.error);
@@ -110,7 +117,7 @@ AlabamaPower.getMonthlyData().catch(console.error)
 
 #### getDailyData()
 **Description**   
-This method collects daily data from the `startDate` provided to the `endDate` provided. 
+This method collects daily data from the `startDate` provided to the `endDate` provided.
 
 **Arguments**
   * `startDate` First date (MM/DD/YYY) to include in collection

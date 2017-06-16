@@ -67,7 +67,7 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
     const timeTilExpiration = expirationTime - (new Date() / 1000);
 
     /* Setting up reconnection for 1 hour before expiration */
-    setTimeout(()=>{ this.reconnect(); },(timeTilExpiration - (timeTilExpiration - 60)) * 1000);
+    setTimeout(()=>{ this.reconnect(); },(timeTilExpiration - (timeTilExpiration - 3600)) * 1000);
   }
 
   /* Southern Company Login Method */
