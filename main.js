@@ -8,6 +8,7 @@ const urls = {
   loginPage: 'https://webauth.southernco.com/account/login',
   LoginAPI: 'https://webauth.southernco.com/api/login',
   ScJwtToken: 'https://customerservice2.southerncompany.com/Account/LogginValidated/JwtToken',
+  AccountDetails: 'https://customerservice2api.southerncompany.com/api/account/getAccountDetailLight',
   ServicePointNumber: 'https://customerservice2api.southerncompany.com/api/account/servicePointNumbers',
   accounts: 'https://customerservice2api.southerncompany.com/api/account/getAllAccounts',
   monthlyData: 'https://customerservice2api.southerncompany.com/api/MyPowerUsage/MonthlyGraph',
@@ -106,7 +107,6 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
 
         return accounts;
       })
-      .then((accounts)=> this.getServicePointNumbers(accounts))
       .then(resolve)
       .catch(reject);
   });}
@@ -249,7 +249,6 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
             name: account.Description,
             primary: account.PrimaryAccount,
             accountNumber: account.AccountNumber,
-            premiseNumber: account.PremiseNumber,
             company: company
           });
         });
@@ -260,40 +259,6 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
         }
 
         /* Fulfilling Promise */
-        resolve(accounts);
-      })
-      .catch(reject);
-  });}
-  getServicePointNumbers(accounts){ return new Promise((resolve, reject)=>{
-    /*  Requests holder */
-    const requests = [];
-
-    /* Looping over all accounts to generate requests */
-    accounts.forEach((account)=>{
-      /* Creating a new request for account and pushing onto queue */
-      const request = {
-        method: 'GET',
-        url: `${urls.ServicePointNumber}/${account.accountNumber}`,
-        responseType: 'JSON',
-        headers:{
-          Authorization: `bearer ${this.ScJwtToken}`
-        }
-      };
-
-      /* Making and storing request */
-      requests.push(axios(request));
-    });
-
-    /* Waiting on all requests */
-    axios.all(requests)
-      .then((responses)=>{
-        /* Looping through all responses to assign service numbers */
-        responses.forEach((response, index)=>{
-          accounts[index].servicePointNumber = response.data.ServicePointNumber;
-          accounts[index].premiseNumber = response.data.PremiseNumber;
-        });
-
-        /* Resolving Promise */
         resolve(accounts);
       })
       .catch(reject);
@@ -316,7 +281,6 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
         },
         data:{
           'accountNumber': account.accountNumber,
-          'PremiseNo': account.premiseNumber,
           'OnlyShowCostAndUsage':'false',
           'IsWidget':'false'
         }
@@ -406,14 +370,13 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
             Authorization: `bearer ${this.ScJwtToken}`
           },
           data:{
-            'acctNum':account.accountNumber,
+            'accountNumber':account.accountNumber,
             'StartDate':startDate.format('M/D/Y'),
             'EndDate':endDate.format('M/D/Y'),
-            'PremiseNo':account.premiseNumber,
-            'ServicePointNo':account.servicePointNumber,
             'DataType':'Cost',
             'OPCO':account.company,
-            'intervalBehavior':'Automatic'
+            'intervalBehavior':'Automatic',
+            'width': 1
           }
         };
 
@@ -426,14 +389,13 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
             Authorization: `bearer ${this.ScJwtToken}`
           },
           data:{
-            'acctNum':account.accountNumber,
+            'accountNumber':account.accountNumber,
             'StartDate':startDate.format('M/D/Y'),
             'EndDate':endDate.format('M/D/Y'),
-            'PremiseNo':account.premiseNumber,
-            'ServicePointNo':account.servicePointNumber,
             'DataType':'Usage',
             'OPCO':account.company,
             'intervalBehavior':'Automatic',
+            'width': 1
           }
         };
 
