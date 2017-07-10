@@ -30,35 +30,37 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
   }
 
   /* Connection Methods */
-  connect(){
-    /* Start Login Process and on sucess eimit connected */
-    this.login()
-      .then(()=>{
-        /* Emitting connected */
-        this.emit('connected');
+  async connect(){
+    try{
+      /* Start Login Process and on sucess eimit connected */
+      await this.login();
 
-        /* Setup Reconnection */
-        this.setupReconnect();
-      })
-      .catch((error)=>{
-        /* Emitting error event */
-        this.emit('error', error);
-      });
+      /* Emitting connected */
+      this.emit('connected');
+
+      /* Setup Reconnection */
+      this.setupReconnect();
+    }
+    catch(err){
+      /* Emitting error event */
+      this.emit('error', err);
+    }
   }
-  reconnect(){
-    /* Start Login Process and on success emit reconnection */
-    this.login()
-      .then(()=>{
-        /* Emitting connected */
-        this.emit('reconnected');
+  async reconnect(){
+    try{
+      /* Start Login Process and on success emit reconnection */
+      await this.login();
 
-        /* Setup Reconnection */
-        this.setupReconnect();
-      })
-      .catch((error)=>{
-        /* Emitting error event */
-        this.emit('error', error);
-      });
+      /* Emitting connected */
+      this.emit('reconnected');
+
+      /* Setup Reconnection */
+      this.setupReconnect();
+    }
+    catch(error){
+      /* Emitting error event */
+      this.emit('error', error);
+    }
   }
   setupReconnect(){
     /* Calulating Session Expiration time and time til expiration */
@@ -72,47 +74,27 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
   }
 
   /* Southern Company Login Method */
-  login(){ return new Promise((resolve, reject)=>{
-    /* Starting login process */
-    this.getRequestVerificationToken()
-      .then((RequestVerificationToken)=>{
-        /* Saving Token */
-        this.RequestVerificationToken = RequestVerificationToken;
+  async login(){
+    try{
+      /* Getting request verification token from login page */
+      this.RequestVerificationToken = await this.getRequestVerificationToken();
 
-        /* Passing token forward */
-        return RequestVerificationToken;
-      })
-      .then((RequestVerificationToken)=>{
-        return this.makeLoginRequest(RequestVerificationToken, this.config.username, this.config.password);
-      })
-      .then((ScWebToken)=>{
-        /* Saving Token */
-        this.ScWebToken = ScWebToken;
+      /* Login Request */
+      this.ScWebToken = await this.makeLoginRequest(this.RequestVerificationToken, this.config.username, this.config.password);
 
-        /* Passing ScWebToken forward */
-        return ScWebToken;
-      })
-      .then(this.makeJwtRequest)
-      .then((ScJwtToken)=>{
-        /* Saving Token */
-        this.ScJwtToken = ScJwtToken;
+      /* Trading ScWebToken for ScJwtToken */
+      this.ScJwtToken = await this.makeJwtRequest(this.ScWebToken);
 
-        /* Passing token forward */
-        return ScJwtToken;
-      })
-      .then(()=> this.getAccounts())
-      .then((accounts)=>{
-        /* Saving Account */
-        this.accounts = accounts;
-
-        return accounts;
-      })
-      .then(resolve)
-      .catch(reject);
-  });}
+      /* Getting accounts */
+      this.accounts = await this.getAccounts();
+    }
+    catch(error){
+      throw error;
+    }
+  }
 
   /* Login Helper Methods */
-  getRequestVerificationToken(){ return new Promise((resolve, reject)=>{
+  async getRequestVerificationToken(){
     /* Config for request */
     const request = {
       method: 'GET',
@@ -120,26 +102,29 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
       responseType: 'document',
     };
 
-    /* Making request */
-    axios(request)
-      .then((response)=>{
-        /* Creating regex to pull RequestVerificationToken */
-        const regex = /webAuth\.aft = '(\S+)'/i;
+    try{
+      /* Making request */
+      const response = await axios(request);
 
-        /* Searching with regex and getting match */
-        const RequestVerificationToken = response.data.match(regex)[1];
+      /* Creating regex to pull RequestVerificationToken */
+      const regex = /webAuth\.aft = '(\S+)'/i;
 
-        /* Check to see if token exists */
-        if(!RequestVerificationToken){
-          reject('Failed to get RequestVerificationToken');
-        }
+      /* Searching with regex and getting match */
+      const RequestVerificationToken = response.data.match(regex)[1];
 
-        /* Fulfilling Promise */
-        resolve(RequestVerificationToken);
-      })
-      .catch(reject);
-  });}
-  makeLoginRequest(RequestVerificationToken, username, password){ return new Promise((resolve, reject)=>{
+      /* Check to see if token exists */
+      if(!RequestVerificationToken){
+        throw new Error('Failed to get RequestVerificationToken');
+      }
+
+      /* Returning token */
+      return RequestVerificationToken;
+    }
+    catch(error){
+      throw error;
+    }
+  }
+  async makeLoginRequest(RequestVerificationToken, username, password){
     /* Config for request */
     const request = {
       method: 'POST',
@@ -157,33 +142,34 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
       }
     };
 
-    /* Making request */
-    axios(request)
-      .then((response)=>{
-        /* Checking if username or password is incorrect */
-        if(response.data.statusCode == 500){
-          reject('Incorrect Username/Password');
-          return;
-        }
+    try{
+      /* Making request */
+      const response = await axios(request);
 
-        /* Creating regex to pull ScWebToken */
-        const regex = /<input type='hidden' name='ScWebToken' value='(\S+)'>/i;
+      /* Checking if username or password is incorrect */
+      if(response.data.statusCode == 500){
+        throw new Error('Incorrect Username/Password');
+      }
 
-        /* Searching with regex and getting match */
-        const ScWebToken = response.data.data.html.match(regex)[1];
+      /* Creating regex to pull ScWebToken */
+      const regex = /<input type='hidden' name='ScWebToken' value='(\S+)'>/i;
 
-        /* Check to see if token exists */
-        if(!ScWebToken){
-          reject('Failed to get ScWebToken');
-        }
+      /* Searching with regex and getting match */
+      const ScWebToken = response.data.data.html.match(regex)[1];
 
-        /* Fulfilling Promise */
-        resolve(ScWebToken);
-      })
-      .catch(reject);
+      /* Check to see if token exists */
+      if(!ScWebToken){
+        throw new Error('Failed to get ScWebToken');
+      }
 
-  });}
-  makeJwtRequest(ScWebToken){ return new Promise((resolve, reject)=>{
+      /* Returning Token */
+      return ScWebToken;
+    }
+    catch(error){
+      throw error;
+    }
+  }
+  async makeJwtRequest(ScWebToken){
     /* Config for request */
     const request = {
       method: 'GET',
@@ -194,28 +180,29 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
       }
     };
 
-    /* Making request */
-    axios(request)
-      .then((response)=>{
-        /* Creating regex to pull ScWebToken */
-        const regex = /ScJwtToken=(.*);/i;
+    try{
+      /* Making request */
+      const response = await axios(request);
 
-        /* Searching with regex and getting match */
-        const ScJwtToken = response.headers['set-cookie'][0].match(regex)[1];
+      /* Creating regex to pull ScWebToken */
+      const regex = /ScJwtToken=(.*);/i;
 
-        resolve(ScJwtToken);
+      /* Searching with regex and getting match */
+      const ScJwtToken = response.headers['set-cookie'][0].match(regex)[1];
 
-        /* Check to see if token exists */
-        if(!ScJwtToken){
-          reject('Failed to get ScJwtToken');
-        }
+      /* Check to see if token exists */
+      if(!ScJwtToken){
+        throw new Error('Failed to get ScJwtToken');
+      }
 
-        /* Fulfilling Promise */
-        resolve(ScJwtToken);
-      })
-      .catch(reject);
-  });}
-  getAccounts(){ return new Promise((resolve, reject)=>{
+      /* Returning token */
+      return ScJwtToken;
+    }
+    catch(error){
+      throw error;
+    }
+  }
+  async getAccounts(){
     /* Config for request */
     const request = {
       method: 'GET',
@@ -226,46 +213,49 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
       }
     };
 
-    /* Making request */
-    axios(request)
-      .then((response)=>{
-        /* Holder for accounts */
-        let accounts = [];
+    try{
+      /* Making request */
+      const response = await axios(request);
 
-        /* Pulling usable data */
-        response.data.Data.forEach((account)=>{
-          let company = 'SCS';
+      /* Holder for accounts */
+      let accounts = [];
 
-          /* Calulating Company */
-          switch(account.Company){
-            case 1: company = 'APC'; break;
-            case 2: company = 'GPC'; break;
-            case 3: company = 'GULF'; break;
-            case 4: company = 'MPC'; break;
-          }
+      /* Pulling usable data */
+      response.data.Data.forEach((account)=>{
+        let company = 'SCS';
 
-          /* Generating Account Object and pushing onto accounts array */
-          accounts.push({
-            name: account.Description,
-            primary: account.PrimaryAccount,
-            accountNumber: account.AccountNumber,
-            company: company
-          });
-        });
-
-        /* Filter accounts if needed  */
-        if(this.config.account != null){
-          accounts = accounts.filter((account)=> account.accountNumber == this.config.account);
+        /* Calulating Company */
+        switch(account.Company){
+          case 1: company = 'APC'; break;
+          case 2: company = 'GPC'; break;
+          case 3: company = 'GULF'; break;
+          case 4: company = 'MPC'; break;
         }
 
-        /* Fulfilling Promise */
-        resolve(accounts);
-      })
-      .catch(reject);
-  });}
+        /* Generating Account Object and pushing onto accounts array */
+        accounts.push({
+          name: account.Description,
+          primary: account.PrimaryAccount,
+          accountNumber: account.AccountNumber,
+          company: company
+        });
+      });
+
+      /* Filter accounts if needed  */
+      if(this.config.account != null){
+        accounts = accounts.filter((account)=> account.accountNumber == this.config.account);
+      }
+
+      /* Returning accounts */
+      return accounts;
+    }
+    catch(error){
+      throw error;
+    }
+  }
 
   /* Data collection methods */
-  getMonthlyData(){ return new Promise((resolve, reject)=>{
+  async getMonthlyData(){
     /*  Requests holder */
     let requests = [];
 
@@ -290,53 +280,57 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
       requests.push(axios(request));
     });
 
-    /* Waiting on all requests */
-    axios.all(requests)
-      .then((responses)=>{
-        /* Results holder */
-        const results = [];
+    try{
+      /* Waiting on all requests */
+      const responses = await axios.all(requests);
 
-        /* Looping through all responses */
-        responses.forEach((response, index)=>{
-          /* Parsing data from graphset */
-          const data = JSON.parse(response.data.Data.Data).graphset[0];
+      /* Results holder */
+      const results = [];
 
-          /* Resulting Array */
-          let result = {
-            name: this.accounts[index].name,
-            accountNumber: this.accounts[index].accountNumber,
-            data: [],
-          };
+      /* Looping through all responses */
+      responses.forEach((response, index)=>{
+        /* Parsing data from graphset */
+        const data = JSON.parse(response.data.Data.Data).graphset[0];
 
-          /* Parse Data if there is data to parse */
-          if(data['scale-x'] !== undefined){
-            for(let i = 0; i < data['scale-x'].labels.length; i++){
-              /* Compiling always available data */
-              const month = {
-                date: data['scale-x'].labels[i],
-                cost: data.series[0].values[i],
-                kWh: data.series[1].values[i]
-              };
+        /* Resulting Array */
+        let result = {
+          name: this.accounts[index].name,
+          accountNumber: this.accounts[index].accountNumber,
+          data: [],
+        };
 
-              /* Adding option data */
-              if(data.series.length > 2){
-                month.bill = data.series[2].values[i];
-              }
+        /* Parse Data if there is data to parse */
+        if(data['scale-x'] !== undefined){
+          for(let i = 0; i < data['scale-x'].labels.length; i++){
+            /* Compiling always available data */
+            const month = {
+              date: data['scale-x'].labels[i],
+              cost: data.series[0].values[i],
+              kWh: data.series[1].values[i]
+            };
 
-              /* Saving data */
-              result.data.push(month);
+            /* Adding option data */
+            if(data.series.length > 2){
+              month.bill = data.series[2].values[i];
             }
+
+            /* Saving data */
+            result.data.push(month);
           }
+        }
 
-          /* Adding result to results holder */
-          results.push(result);
-        });
+        /* Adding result to results holder */
+        results.push(result);
+      });
 
-        /* Resolving Promise */
-        resolve(results);
-      })
-      .catch(reject);
-  });}
+      /* Returning daily data */
+      return results ;
+    }
+    catch(error){
+      throw error;
+    }
+  }
+
   getDailyData(begin, end){ return new Promise((resolve, reject)=>{
     /* Formating start and end date */
     let startDate = moment(begin, 'M/D/Y');

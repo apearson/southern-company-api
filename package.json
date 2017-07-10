@@ -9,6 +9,9 @@
   "author": "John Andrew Tyler Pearson <andrew@apearson.io> (https://www.apearson.io)",
   "license": "MIT",
   "eslintConfig": {
+    "parserOptions": {
+      "ecmaVersion": 8 
+    },
     "env": {
       "node": true,
       "commonjs": true,
