@@ -408,17 +408,24 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
             let costDataArray = [];
             let usageDataArray = [];
 
-            /* Parsing data if it exist */
+            /* Pulling data from data series */
             if(costData.series != null){
-              costDataArray = costData.series[1].values.concat(costData.series[2].values);
+              costData.series.forEach((series)=>{
+                if(series.text == 'Regular Usage' || series.text == 'Weekend'){
+                  costDataArray = costDataArray.concat(series.values);
+                }
+              });
             }
-
-            if(costData.series != null){
-              usageDataArray = usageData.series[1].values.concat(usageData.series[2].values);
+            if(usageData.series != null){
+              usageData.series.forEach((series)=>{
+                if(series.text == 'Regular Usage' || series.text == 'Weekend'){
+                  usageDataArray = usageDataArray.concat(series.values);
+                }
+              });
             }
 
             /* Sorting Data Array on dates */
-            const normalSort = (a,b)=>{ if(a[0] > b[0]) return 1; if(a[0] > b[0]) return 1; if(a[0] == b[0]) return 0; };
+            const normalSort = (a,b)=>{ if(a[0] > b[0]) return 1; if(a[0] < b[0]) return -1; if(a[0] == b[0]) return 0; };
             costDataArray.sort(normalSort);
             usageDataArray.sort(normalSort);
 
