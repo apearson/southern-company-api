@@ -1,6 +1,9 @@
 language: node_js
 node_js:
-  - "8.0.0"
-sudo: false
+  - "stable"
+
 install:
   - npm install
+
+after_success:
+- npm run coveralls

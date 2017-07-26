@@ -1,4 +1,4 @@
-# Southern Company API [![Build Status](https://travis-ci.org/apearson/southern-company-api.svg?branch=master)](https://travis-ci.org/apearson/southern-company-api)
+# Southern Company API [![Build Status](https://travis-ci.org/apearson/southern-company-api.svg?branch=master)](https://travis-ci.org/apearson/southern-company-api) [![Coverage Status](https://coveralls.io/repos/github/apearson/southern-company-api/badge.svg?branch=master)](https://coveralls.io/github/apearson/southern-company-api?branch=master)
 
 ## Example
 ```js

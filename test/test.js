@@ -20,7 +20,7 @@ describe('getRequestVerificationToken()', ()=>{
     SouthernCompany.RequestVerificationToken = await SouthernCompany.getRequestVerificationToken();
 
     /* Testing to make sure some token exists */
-    if(SouthernCompany.RequestVerificationToken.length == 0){
+    if(SouthernCompany.RequestVerificationToken.length === 0){
       throw new Error('ScWebToken does not exist');
     }
     else{
@@ -34,7 +34,7 @@ describe('makeLoginRequest()', ()=>{
     SouthernCompany.ScWebToken = await SouthernCompany.makeLoginRequest(SouthernCompany.RequestVerificationToken, config.username, config.password);
 
     /* Testing to make sure some token exists */
-    if(SouthernCompany.ScWebToken.length == 0){
+    if(SouthernCompany.ScWebToken.length === 0){
       throw new Error('ScWebToken does not exist');
     }
     else{
@@ -48,7 +48,7 @@ describe('makeJwtRequest()', ()=>{
     SouthernCompany.ScJwtToken = await SouthernCompany.makeJwtRequest(SouthernCompany.ScWebToken);
 
     /* Testing to make sure some token exists */
-    if(SouthernCompany.ScJwtToken.length == 0){
+    if(SouthernCompany.ScJwtToken.length === 0){
       throw new Error('ScJwtToken does not exist');
     }
     else{
@@ -62,7 +62,7 @@ describe('getAccounts()', ()=>{
     SouthernCompany.accounts = await SouthernCompany.getAccounts();
 
     /* Testing to make sure some accounts exist */
-    if(SouthernCompany.accounts.length == 0){
+    if(SouthernCompany.accounts.length === 0){
       throw new Error('No account were returned');
     }
     else{
