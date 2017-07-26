@@ -25,8 +25,13 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
     /* Saving config */
     this.config = config;
 
-    /* Starting connection */
-    this.connect();
+    /* Starting connection if there is a config, no config means testing */
+    if(this.config != null){
+      this.connect();
+    }
+    else{
+      this.config = {};
+    }
   }
 
   /* Connection Methods */

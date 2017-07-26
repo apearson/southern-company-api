@@ -4,7 +4,7 @@
   "description": "A Library for pulling power usage data from Southern Company or Southern Company subcompanies",
   "main": "main.js",
   "scripts": {
-    "test": "node test.js"
+    "test": "mocha"
   },
   "author": "John Andrew Tyler Pearson <andrew@apearson.io> (https://www.apearson.io)",
   "license": "MIT",
@@ -15,7 +15,8 @@
     "env": {
       "node": true,
       "commonjs": true,
-      "es6": true
+      "es6": true,
+      "mocha": true
     },
     "extends": "eslint:recommended",
     "rules": {
@@ -53,5 +54,8 @@
   "dependencies": {
     "axios": "^0.16.1",
     "moment": "^2.17.1"
+  },
+  "devDependencies": {
+    "mocha": "^3.4.2"
   }
 }
