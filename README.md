@@ -1,4 +1,4 @@
-# Southern Company API
+# Southern Company API [![Build Status](https://travis-ci.org/apearson/southern-company-api.svg?branch=master)](https://travis-ci.org/apearson/southern-company-api)
 
 ## Example
 ```js
