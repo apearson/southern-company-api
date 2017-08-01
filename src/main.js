@@ -75,7 +75,10 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
     const timeTilExpiration = expirationTime - (new Date() / 1000);
 
     /* Setting up reconnection for 1 hour before expiration */
-    setTimeout(()=>{ this.reconnect(); },(timeTilExpiration - (timeTilExpiration - 3600)) * 1000);
+    this.reconnectTimer =  setTimeout(()=>{ this.reconnect(); },(timeTilExpiration - (timeTilExpiration - 3600)) * 1000);
+
+    /* Returning reconnect timer */
+    return this.reconnectTimer;
   }
 
   /* Southern Company Login Method */
@@ -92,6 +95,9 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
 
       /* Getting accounts */
       this.accounts = await this.getAccounts();
+
+      /* Returning accounts */
+      return this.accounts;
     }
     catch(error){
       throw error;
