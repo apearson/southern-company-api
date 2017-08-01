@@ -1,4 +1,4 @@
-# Southern Company API [![Travis](https://img.shields.io/travis/apearson/southern-company-api.svg)](https://travis-ci.org/apearson/southern-company-api.svg?branch=master) [![Coveralls](https://img.shields.io/coveralls/apearson/southern-company-api.svg)]()
+# Southern Company API [![Travis](https://img.shields.io/travis/apearson/southern-company-api.svg)](https://travis-ci.org/apearson/southern-company-api) [![Coveralls](https://img.shields.io/coveralls/apearson/southern-company-api.svg)](https://coveralls.io/github/apearson/southern-company-api)
 
 ## Example
 ```js
