@@ -111,7 +111,7 @@ describe('connect()', ()=>{
   });
 });
 describe('reconnect()', ()=>{
-it('should attempt a reconnection and emit a "reconnected" event', function(done){
+  it('should attempt a reconnection and emit a "reconnected" event', function(done){
     /* Setting up test */
     this.timeout(5000);
     
@@ -143,7 +143,6 @@ describe('setupReconnect()', ()=>{
     }
   });
 });
-
 
 /* Testing Constructor */
 describe('Constructor()', ()=>{
