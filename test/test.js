@@ -91,20 +91,6 @@ describe('login()', ()=>{
 
   });
 });
-describe('setupReconnect()', ()=>{
-  it('should setting up a reconnect based on current login and return a timer', ()=>{
-    /* Attempting to setup reconnect */
-    let reconnectTimer = SouthernCompany.setupReconnect();
-
-    /* Checking to make sure it returned a timer */
-    if(reconnectTimer != null){
-      return reconnectTimer;
-    }
-    else{
-      throw new Error('No reconnect timer was returned');
-    }
-  });
-});
 describe('connect()', ()=>{
   it('should attempt a connection and emit a "connected" event', function(done){
     /* Setting up test */
@@ -124,6 +110,40 @@ describe('connect()', ()=>{
     SouthernCompanyConnect.connect();
   });
 });
+describe('reconnect()', ()=>{
+it('should attempt a reconnection and emit a "reconnected" event', function(done){
+    /* Setting up test */
+    this.timeout(5000);
+    
+    /* Setting up creds */
+    SouthernCompanyReconnect = new SoCo();
+    SouthernCompanyReconnect.config.username = config.username;
+    SouthernCompanyReconnect.config.password = config.password;
+
+    /* Attaching event listener and calling done */
+    SouthernCompanyReconnect.on('reconnected', ()=>{
+      done();
+    });
+
+    /* Attempting login */
+    SouthernCompanyReconnect.reconnect();
+  });
+});
+describe('setupReconnect()', ()=>{
+  it('should setting up a reconnect based on current login and return a timer', ()=>{
+    /* Attempting to setup reconnect */
+    let reconnectTimer = SouthernCompany.setupReconnect();
+
+    /* Checking to make sure it returned a timer */
+    if(reconnectTimer != null){
+      return reconnectTimer;
+    }
+    else{
+      throw new Error('No reconnect timer was returned');
+    }
+  });
+});
+
 
 /* Testing Constructor */
 describe('Constructor()', ()=>{
