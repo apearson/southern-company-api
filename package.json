@@ -8,7 +8,16 @@
     "coverage": "nyc --reporter=text mocha",
     "coveralls": "nyc npm test && nyc --reporter=text-lcov mocha | coveralls"
   },
+  
   "author": "John Andrew Tyler Pearson <andrew@apearson.io> (https://www.apearson.io)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apearson/southern-company-api.git"
+  },
+  "homepage": "https://github.com/apearson/southern-company-api#readme",
+  "bugs": {
+    "url": "https://github.com/apearson/southern-company-api/issues"
+  },
   "license": "MIT",
   "eslintConfig": {
     "parserOptions": {
