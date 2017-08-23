@@ -1,6 +1,6 @@
 {
   "name": "southern-company-api",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "A Library for pulling power usage data from Southern Company or Southern Company subcompanies",
   "main": "./src/main.js",
   "scripts": {
@@ -8,7 +8,6 @@
     "coverage": "nyc --reporter=text mocha",
     "coveralls": "nyc npm test && nyc --reporter=text-lcov mocha | coveralls"
   },
-  
   "author": "John Andrew Tyler Pearson <andrew@apearson.io> (https://www.apearson.io)",
   "repository": {
     "type": "git",
