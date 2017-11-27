@@ -139,17 +139,14 @@ module.exports = class SouthernCompanyAPI extends EventEmitter{
     /* Config for request */
     const request = {
       method: 'POST',
-      url: urls.LoginAPI,
+      url: urls.LoginAPI + '?WL_ReturnUrl=null',
       responseType: 'JSON',
       headers:{
         RequestVerificationToken: RequestVerificationToken
       },
       data:{
         username: username,
-        password: password,
-        params:{
-          ReturnUrl: 'null',
-        }
+        password: password
       }
     };
 
