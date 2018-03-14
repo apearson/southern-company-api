@@ -35,9 +35,10 @@ export default class SouthernCompanyAPI extends EventEmitter{
 		/* ScWebToken */
 		const ScWebToken = await this.getScWebToken(loginToken, this.username, this.password);
 
+		/* JWT */
+		const JWT = await this.getJwt(ScWebToken);
 
-
-		console.log(ScWebToken);
+		console.log(JWT);
 	}
 
 	/* API methods */
@@ -107,13 +108,40 @@ export default class SouthernCompanyAPI extends EventEmitter{
 	}
 	private async getJwt(ScWebToken: string){
 		/* Trading ScWebToken for Jwt */
-		const response = await fetch('https://customerservice2.southerncompany.com/Account/LogginValidated/JwtToken')
+		const response = await fetch('https://customerservice2.southerncompany.com/Account/LogginValidated/JwtToken', {
+			headers:{
+				Cookie: `ScWebToken=${ScWebToken}`
+			}
+		});
 
 		/* Checking for unsuccessful login */
 		if(response.status !== 200){
 			throw new Error(`Failed to get JWT: ${response.statusText}`);
 		}
 
+		/* Regex to parse JWT out of headers */
+		const regex = /ScJwtToken=(.*);/i;
+
+		/* Parsing response header to get token */
+		let token: string;
+		let cookies = response.headers.get('set-cookie');
+		if(cookies){
+			const matches = cookies.match(regex);
+
+			/* Checking for matches */
+			if(matches && matches.length > 1){
+				token = matches[1];
+			}
+			else{
+				throw new Error(`Failed to get JWT: Could not find any token matches in headers`);
+			}
+		}
+		else{
+			throw new Error(`Failed to get JWT: No Cookies were sent back`);
+		}
+
+		/* Returning JWT */
+		return token;
 	}
 
 	private async doStuff(){
