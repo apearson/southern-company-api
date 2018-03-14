@@ -3,7 +3,4 @@ node_js:
   - "stable"
 
 install:
-  - npm install
-
-after_success:
-- npm run coveralls
+  - npm ci
