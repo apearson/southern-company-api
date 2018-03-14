@@ -12,7 +12,9 @@
     "sourceMap": true,
 
     "strict": true,
-
+    "lib": [
+      "es7"
+    ]
   },
   "include": [
     "./src/**/*"
