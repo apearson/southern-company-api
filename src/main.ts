@@ -120,7 +120,7 @@ export default class SouthernCompanyAPI extends EventEmitter{
 		}
 
 		/* Regex to parse JWT out of headers */
-		const regex = /ScJwtToken=(.*);/i;
+		const regex = /ScJwtToken=(\S*);/i;
 
 		/* Parsing response header to get token */
 		let token: string;
