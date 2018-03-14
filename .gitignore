@@ -4,9 +4,6 @@ node_modules
 #Configuration
 config.json
 
-#IDE
-.vscode
-
 #Personal
 notes.txt
 
