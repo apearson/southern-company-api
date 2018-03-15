@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "test": "nyc npm test && nyc --reporter=text-lcov mocha | coveralls",
-    "test:local": "ts-node ./src/main.ts",
+    "test:local": "ts-node ./tests/test.ts",
     "coverage": "nyc --reporter=text mocha"
   },
   "author": "John Andrew Tyler Pearson <andrew@apearson.io> (https://www.apearson.io)",

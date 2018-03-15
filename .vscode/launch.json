@@ -13,6 +13,16 @@
 			"sourceMaps": true,
 			"cwd": "${workspaceRoot}",
 			"protocol": "inspector"
+		},
+		{
+			"name": "Test.ts",
+			"type": "node",
+			"request": "launch",
+			"args": ["./tests/test.ts"],
+			"runtimeArgs": ["--nolazy", "-r", "ts-node/register"],
+			"sourceMaps": true,
+			"cwd": "${workspaceRoot}",
+			"protocol": "inspector"
 		}
 	]
 }

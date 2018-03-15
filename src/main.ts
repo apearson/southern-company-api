@@ -3,10 +3,10 @@ import {EventEmitter} from 'events';
 import fetch from 'node-fetch'
 
 /* Interfaces */
-import {APIResponse, GetAllAccountsResponse, Companies} from './interfaces/responses';
-
-/* Config */
-const config = require('../config.json');
+import {Company} from './interfaces/general';
+import {APIResponse, GetAllAccountsResponse, LoginResponse, MonthlyDataResponse} from './interfaces/responses';
+import { start } from 'repl';
+import { debug } from 'util';
 
 /* Interfaces */
 export interface SouthernCompanyConfig{
@@ -19,6 +19,7 @@ export interface SouthernCompanyConfig{
 export default class SouthernCompanyAPI extends EventEmitter{
 	private config?: SouthernCompanyConfig;
 	private jwt?: string;
+	private company?: Company;
 
 	constructor(config?: SouthernCompanyConfig){
 		super();
@@ -55,6 +56,31 @@ export default class SouthernCompanyAPI extends EventEmitter{
 
 		/* Returning */
 		return JWT;
+	}
+
+	/* Utility Methods */
+	private getAccountsArray(){
+		/* Calulating which accounts to fetch data from */
+		let accounts: string[] = [];
+		if(this.config){
+			if(this.config.accounts){
+				accounts = this.config.accounts;
+			}
+			else if(this.config.account){
+				accounts.push(this.config.account);
+			}
+		}
+
+		/* Returning accounts array */
+		return accounts;
+	}
+	private formatDate(date){
+		return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} 12:00:00 AM`;
+	}
+	private dataSort(a, b){
+		if(a[0] > b[0]) return 1;
+		else if(a[0] < b[0]) return -1;
+		else return 0;
 	}
 
 	/* API methods */
@@ -108,7 +134,7 @@ export default class SouthernCompanyAPI extends EventEmitter{
 		}
 
 		/* Parsing response as JSON to match search response for token */
-		const resData = await response.json();
+		const resData: LoginResponse = await response.json();
 
 		/* Regex to match token in response */
 		const regex = /<input type='hidden' name='ScWebToken' value='(\S+)'>/i;
@@ -192,10 +218,10 @@ export default class SouthernCompanyAPI extends EventEmitter{
 			name: account.Description,
 			primary: account.PrimaryAccount,
 			number: account.AccountNumber,
-			company: Companies[account.Company]
+			company: Company[account.Company]
 		}));
 
-		/* Filtering accounts if needed */ //TODO: Could use somework
+		/* Filtering accounts if needed */
 		if(this.config && (this.config.account || this.config.accounts)){
 			/* Creating accounts array to compare against */
 			const accountsFilter = this.config.accounts || [];
@@ -213,20 +239,134 @@ export default class SouthernCompanyAPI extends EventEmitter{
 	}
 
 	/* Data methods */
-	private async getMonthlyData(){
+	public async getDailyData(startDate: Date, endDate: Date){
+		/* Sanity checking arguments */
+		if(endDate < startDate){
+			throw new Error('Invalid Dates');
+		}
+
+		/* Calulating which accounts to fetch data from */
+		let accounts = this.getAccountsArray();
+
+		/* Formatting dates for API */
+		startDate.setDate(startDate.getDate() - 1);
+
 		/* Requests */
+		const requests = accounts.map((account)=>{
+			/* Requests holder */
+			const requests = [];
+
+			/* Cost Request */
+			const costRequest = fetch('https://customerservice2api.southerncompany.com/api/MyPowerUsage/DailyGraph', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json; charset=UTF-8',
+					Authorization: `bearer ${this.jwt}`,
+				},
+				body: JSON.stringify({
+					accountNumber: account,
+					StartDate: this.formatDate(startDate),
+					EndDate: this.formatDate(endDate),
+					DataType: 'Cost',
+					OPCO: 'APC',
+					intervalBehavior: 'Automatic'
+				})
+			});
+
+			/* Usage Request */
+			const usageRequest = fetch('https://customerservice2api.southerncompany.com/api/MyPowerUsage/DailyGraph', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json; charset=UTF-8',
+					Authorization: `bearer ${this.jwt}`,
+				},
+				body: JSON.stringify({
+					accountNumber: account,
+					StartDate: this.formatDate(startDate),
+					EndDate: this.formatDate(endDate),
+					DataType: 'Usage',
+					OPCO: 'APC',
+					intervalBehavior: 'Automatic'
+				})
+			});
+
+			/* Returning array of requests */
+			return [costRequest, usageRequest];
+		});
+
+		/* Promising everything! */
+		const responses = await Promise.all(requests.map((accountPromises)=> Promise.all(accountPromises)));
+
+		/* Parsing out responses */
+		responses.map(async (accountResponses)=>{
+			/* Parsing responses to JSON */
+			const accountResData = await Promise.all(accountResponses.map((res)=> res.json()));
+
+			/* Parsing out graphsets from data */
+			const data = accountResData.map((resData)=> JSON.parse(resData.Data.Data).graphset[0]);
+
+			/* For both cost and usage, find both weekend and weekday series, concat them together */
+			const usageData = data.map((data)=>{
+				let dataArray = [];
+
+				/* Make sure series are not empty (no data) */
+				if(data.series != null){
+					data.series.forEach((series)=>{
+						if(series.text === 'Regular Usage' || series.text === 'Weekend'){
+							dataArray = dataArray.concat(series.values);
+						}
+					});
+				}
+
+				/* Sorting the data based on day number */
+				dataArray.sort(this.dataSort);
+
+				/* Giving back completed arrays */
+				return dataArray;
+			});
+
+			debugger;
+		});
+
+	}
+	public async getMonthlyData(){
+		/* Calulating which accounts to fetch data from */
+		let accounts = this.getAccountsArray();
+
+		/* Creating a request for each account */
+		const requests = accounts.map((account)=>{
+			return fetch('https://customerservice2api.southerncompany.com/api/MyPowerUsage/MonthlyGraph', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json; charset=UTF-8',
+					Authorization: `bearer ${this.jwt}`
+				},
+				body: JSON.stringify({
+					accountNumber: account,
+					OnlyShowCostAndUsage: false,
+					IsWidget: false,
+				})
+			});
+		});
+
+		/* Waiting for all requests */
+		const responses = await Promise.all(requests);
+
+		/* Converting all responses to json */
+		const resData: MonthlyDataResponse[] = await Promise.all(responses.map((response)=> response.json()));
+
+		/* Grabbing data from all responses */
+		const monthlyData = resData.map((response, index)=>{
+			/* Parsing graph data */
+			const graphData = JSON.parse(response.Data.Data);
+
+			// DEBUG
+			throw new Error('Not implemented');
+
+			/* Creating response object */
+			let result = {
+				accountNumber: accounts[index],
+			};
+		});
 	}
 }
-
-const API = new SouthernCompanyAPI({
-	username: config.username,
-	password: config.password
-});
-
-API.on('connected', async ()=> {
-	console.log('Connected!');
-
-	const accounts = await API.getAccounts();
-
-	console.log(accounts);
-});

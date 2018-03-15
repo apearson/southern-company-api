@@ -1,39 +1,75 @@
-/* Responses */
+/* External Interfaces */
+import {Account, AccountDetails} from './general';
+
+/* Responses Format */
+export interface APILoginResponse{
+	statusCode: number;
+	message: string;
+	isSuccess: boolean;
+	modelErrors: null;
+}
 export interface APIResponse{
 	StatusCode: number;
 	Message: string;
 	MessageType: number;
 	Data: any;
+	ModelErrors?: string[];
 	IsScApiResult: boolean;
 }
 
+/* Responses */
+export interface LoginResponse extends APILoginResponse{
+	data: {
+		result: number;
+		token: string;
+		errorMessage: string;
+		messages: string[];
+		username: string;
+		rememberUsername: null;
+		staySignedIn: null;
+		recaptchaResponse: null;
+		targetPage: number;
+		params: object;
+		html: string;
+		redirect: null;
+		origin: null;
+	}
+}
+export interface JwtTokenResponse extends APIResponse{
+	Data: {
+		Token: null;
+		Sid: null;
+	};
+}
+
 export interface GetAllAccountsResponse extends APIResponse{
-	Data: SouthernCompanyAccount[];
+	Data: Account[];
 }
-
-export interface SouthernCompanyAccount{
-	UserSid: string;
-	AccountNumber: number;
-	Company: 0 | 1 | 2 | 3 | 4;
-	AccountType: number;
-	Description: string;
-	PrimaryAccount: 'Y' | 'N';
-	IsCurrentViewAccount: boolean;
-	DataPresentmentPilotParticipant: string;
-	BillStatus: number;
-	IsLocked: boolean;
-	AccountLockedUntil: null;
-	IsPinRequired: boolean;
-	IsPinValidated: boolean;
-	LocalAddress: null;
-	PremiseNumber: null;
-	IsPrePayAccount: boolean;
+export interface AccountDetailsResponse extends APIResponse{
+	Data: AccountDetails;
 }
+export interface MonthlyDataResponse extends APIResponse{
+	Data: {
+		Data: string;
+		HighTempIndex: number;
+		LowTempIndex: number;
+		TemperatureIndex: number;
+		NotificationIndex: number;
+		AboveAlertIndex: number;
+		DailyAlertIndex: number;
+		WeekendIndex: number;
+		ReminderIndex: number;
+		ProjectedBillAmountHigh: null;
+		ProjectedBillAmountLow: null;
+		AverageDailyCost: null;
+		Days: number;
+		DollarsToDate: null;
+		TotalkWhUsed: number;
+		HasData:boolean;
+		HasEstimatedBill: boolean;
+		IsPartialMonth: boolean;
+		RemainingDays: number;
+		DaysToDate: number;
 
-export enum Companies{
-	'SCS',
-	'APC',
-	'GPC',
-	'GULF',
-	'MPC',
+	}
 }
