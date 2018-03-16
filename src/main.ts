@@ -257,18 +257,6 @@ export default class SouthernCompanyAPI extends EventEmitter{
 
 		/* Requests */
 		const requests = accounts.map((account)=>{
-			/* Requests holder */
-			const requests = [];
-
-			const body = JSON.stringify({
-				accountNumber: account,
-				StartDate: this.formatDate(correctedStartDate),
-				EndDate: this.formatDate(endDate),
-				DataType: 'Cost',
-				OPCO: 'APC',
-				intervalBehavior: 'Automatic'
-			});
-
 			/* Cost Request */
 			const costRequest = fetch('https://customerservice2api.southerncompany.com/api/MyPowerUsage/DailyGraph', {
 				method: 'POST',
