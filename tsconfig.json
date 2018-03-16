@@ -7,13 +7,13 @@
     "module": "commonjs",
     "moduleResolution": "node",
 
-		"target": "es6",
+		"target": "es2016",
 
     "sourceMap": true,
 
     "strict": true,
     "lib": [
-      "es7"
+      "es2018"
     ]
   },
   "include": [

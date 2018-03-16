@@ -13,18 +13,18 @@ const API = new SouthernCompanyAPI({
 });
 
 /* Events */
-API.on('connected', async ()=> {
+API.on('connected', async (accounts)=> {
 	console.log('Connected!');
 
-	// const accounts = await API.getAccounts();
+	console.log(accounts);
+
 	try{
 		// const monthlyData = await API.getMonthlyData();
-		const startDate = new Date();
+		const startDate = new Date(2018, 2, 11);
 		const endDate = new Date();
 
-		startDate.setDate(startDate.getDate() - 7);
-
-		const dailyDate = await API.getDailyData(startDate, endDate);
+		const dailyData = await API.getDailyData(startDate, endDate);
+		console.log(dailyData);
 	}
 	catch(e){
 		console.error(e);

@@ -1,6 +1,7 @@
 /* Libraries */
 import {EventEmitter} from 'events';
-import fetch from 'node-fetch'
+import fetch from 'node-fetch';
+import {differenceInCalendarDays, subDays, addDays} from 'date-fns';
 
 /* Interfaces */
 import {Company} from './interfaces/general';
@@ -29,12 +30,9 @@ export default class SouthernCompanyAPI extends EventEmitter{
 
 		/* Connecting to Souther Company API */
 		if(config){
-			this.login().then((jwt)=>{
-				/* Saving JWT */
-				this.jwt = jwt;
-
+			this.login().then((accounts)=>{
 				/* Emitting connected event */
-				this.emit('connected');
+				this.emit('connected', accounts);
 			});
 		}
 	}
@@ -51,11 +49,17 @@ export default class SouthernCompanyAPI extends EventEmitter{
 		/* ScWebToken */
 		const ScWebToken = await this.getScWebToken(loginToken, this.config.username, this.config.password);
 
-		/* JWT */
-		const JWT = await this.getJwt(ScWebToken);
+		/* Saving JWT */
+		this.jwt = await this.getJwt(ScWebToken);
+
+		/* Getting accounts if none are supplied */
+		if(this.config.account == undefined && this.config.accounts == undefined){
+			const accounts = await this.getAccounts();
+			this.config.accounts = accounts.map((account)=> account.number.toString());
+		}
 
 		/* Returning */
-		return JWT;
+		return this.getAccountsArray();
 	}
 
 	/* Utility Methods */
@@ -195,13 +199,13 @@ export default class SouthernCompanyAPI extends EventEmitter{
 	public async getAccounts(){
 		/* Checking to make sure we have a JWT to use */
 		if(!this.jwt){
-			throw new Error('Get not get accounts: Not Logged In');
+			throw new Error('Could not get accounts: Not Logged In');
 		}
 
 		/* Grabbing accounts from API */
 		const response = await fetch('https://customerservice2api.southerncompany.com/api/account/getAllAccounts', {
 			headers: {
-				Authorization: `bearer ${this.jwt}`
+				Authorization: `bearer ${this.jwt || jwt}`
 			}
 		});
 
@@ -249,12 +253,21 @@ export default class SouthernCompanyAPI extends EventEmitter{
 		let accounts = this.getAccountsArray();
 
 		/* Formatting dates for API */
-		startDate.setDate(startDate.getDate() - 1);
+		let correctedStartDate = subDays(startDate, 1);
 
 		/* Requests */
 		const requests = accounts.map((account)=>{
 			/* Requests holder */
 			const requests = [];
+
+			const body = JSON.stringify({
+				accountNumber: account,
+				StartDate: this.formatDate(correctedStartDate),
+				EndDate: this.formatDate(endDate),
+				DataType: 'Cost',
+				OPCO: 'APC',
+				intervalBehavior: 'Automatic'
+			});
 
 			/* Cost Request */
 			const costRequest = fetch('https://customerservice2api.southerncompany.com/api/MyPowerUsage/DailyGraph', {
@@ -265,7 +278,7 @@ export default class SouthernCompanyAPI extends EventEmitter{
 				},
 				body: JSON.stringify({
 					accountNumber: account,
-					StartDate: this.formatDate(startDate),
+					StartDate: this.formatDate(correctedStartDate),
 					EndDate: this.formatDate(endDate),
 					DataType: 'Cost',
 					OPCO: 'APC',
@@ -282,7 +295,7 @@ export default class SouthernCompanyAPI extends EventEmitter{
 				},
 				body: JSON.stringify({
 					accountNumber: account,
-					StartDate: this.formatDate(startDate),
+					StartDate: this.formatDate(correctedStartDate),
 					EndDate: this.formatDate(endDate),
 					DataType: 'Usage',
 					OPCO: 'APC',
@@ -297,16 +310,18 @@ export default class SouthernCompanyAPI extends EventEmitter{
 		/* Promising everything! */
 		const responses = await Promise.all(requests.map((accountPromises)=> Promise.all(accountPromises)));
 
-		/* Parsing out responses */
-		responses.map(async (accountResponses)=>{
+		debugger;
+
+		/* Parsing out responses and returning the usage data*/
+		return await Promise.all(responses.map(async (accountResponses)=>{
 			/* Parsing responses to JSON */
 			const accountResData = await Promise.all(accountResponses.map((res)=> res.json()));
 
 			/* Parsing out graphsets from data */
-			const data = accountResData.map((resData)=> JSON.parse(resData.Data.Data).graphset[0]);
+			const graphData = accountResData.map((resData)=> JSON.parse(resData.Data.Data).graphset[0]);
 
 			/* For both cost and usage, find both weekend and weekday series, concat them together */
-			const usageData = data.map((data)=>{
+			const rawUsageData = graphData.map((data)=>{
 				let dataArray = [];
 
 				/* Make sure series are not empty (no data) */
@@ -325,9 +340,19 @@ export default class SouthernCompanyAPI extends EventEmitter{
 				return dataArray;
 			});
 
-			debugger;
-		});
+			/* Creating Response array */
+			const formattedUsageData: any[] = [];
+			for(let i = 0; i < differenceInCalendarDays(endDate, startDate); i++){
+				formattedUsageData.push({
+					date: addDays(startDate, i),
+					kWh: rawUsageData[0][i][1],
+					cost: rawUsageData[1][i][1],
+				})
+			}
 
+			/* Returning usage data */
+			return formattedUsageData;
+		}));
 	}
 	public async getMonthlyData(){
 		/* Calulating which accounts to fetch data from */
