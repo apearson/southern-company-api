@@ -1,6 +1,9 @@
 #Node
 node_modules
 
+#Mac
+.DS_Store
+
 #Configuration
 config.json
 
@@ -9,3 +12,7 @@ notes.txt
 
 #Dist
 dist
+
+#Testing
+coverage
+tests/debug.ts

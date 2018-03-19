@@ -5,7 +5,7 @@ import {differenceInCalendarDays, subDays, addDays, parse} from 'date-fns';
 
 /* Interfaces */
 import {Company, DailyData, MonthlyData, Account} from './interfaces/general';
-import {APIResponse, GetAllAccountsResponse, LoginResponse, MonthlyDataResponse, DailyDataResponse} from './interfaces/responses';
+import {GetAllAccountsResponse, LoginResponse, MonthlyDataResponse, DailyDataResponse} from './interfaces/responses';
 
 /* Interfaces */
 export interface SouthernCompanyConfig{
@@ -26,7 +26,7 @@ export default class SouthernCompanyAPI extends EventEmitter{
 		/* Saving config */
 		this.config = config;
 
-		/* Connecting to Souther Company API */
+		/* Connecting to Southern Company API */
 		if(config){
 			this.login().then((accounts)=>{
 				/* Emitting connected event */
@@ -373,9 +373,11 @@ export default class SouthernCompanyAPI extends EventEmitter{
 			const graphData = JSON.parse(response.Data.Data).graphset[0];
 
 			/* Mapping data to single array */
-			const rawMonthData = graphData['scale-x'].labels.map((date, index)=>{
+			const rawMonthData = graphData['scale-x'].labels.map((date: string, index: number)=>{
+				const dateString = date.split('/').map((num)=> parseInt(num));
+				const dateObj = new Date(2000 + dateString[1], dateString[0] - 1);
 				return {
-					date,
+					date: dateObj,
 					kWh: graphData.series[1].values[index],
 					cost: graphData.series[0].values[index]
 				}

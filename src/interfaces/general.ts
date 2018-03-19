@@ -25,12 +25,12 @@ export interface DailyData{
 		kWh: number;
 		cost: number;
 	}[];
-};
+}
 
 export interface MonthlyData{
 	accountNumber: string;
 	data: {
-		date: string;
+		date: Date;
 		kWh: number;
 		cost: number;
 	}[];
