@@ -2,8 +2,12 @@
 import SouthernCompanyAPI from '../src/main';
 
 /* Config */
-const config = require('../config.json');
+const config = {
+	username: process.env.username,
+	password: process.env.password
+};
 
+/* Tests */
 test('emits a connected event when connected', ()=>{
 	return new Promise((resolve, reject)=>{
 		/* Connecting to API */

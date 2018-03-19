@@ -2,7 +2,10 @@
 import SouthernCompanyAPI from '../src/main';
 
 /* Config */
-const config = require('../config.json');
+const config = {
+	username: process.env.username,
+	password: process.env.password
+};
 
 /* Connecting to API */
 let API: SouthernCompanyAPI;
@@ -15,6 +18,7 @@ beforeAll(() => {
 	});
 });
 
+/* Tests */
 test('grabs a list of accounts', async ()=>{
 	const accounts = await API.getAccounts();
 

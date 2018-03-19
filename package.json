@@ -5,8 +5,9 @@
 	"main": "./src/main.ts",
 	"scripts": {
 		"build": "tsc",
-		"tests": "jest",
-		"test:local": "ts-node ./tests/test.ts"
+		"test": "jest",
+		"test:ci": "jest && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
+		"test:local": "ts-node ./tests/debug.ts"
 	},
 	"author": "John Andrew Tyler Pearson <andrew@apearson.io> (https://www.apearson.io)",
 	"repository": {
@@ -22,6 +23,7 @@
 		"@types/jest": "^22.2.0",
 		"@types/node": "^9.4.7",
 		"@types/node-fetch": "^1.6.7",
+		"coveralls": "^3.0.0",
 		"jest": "^22.4.2",
 		"ts-jest": "^22.4.2",
 		"ts-node": "^5.0.1",

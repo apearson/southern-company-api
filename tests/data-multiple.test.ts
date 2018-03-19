@@ -5,7 +5,8 @@ import {subDays} from 'date-fns';
 /* Config */
 const config = {
 	username: process.env.username,
-	password: process.env.password
+	password: process.env.password,
+	accounts: JSON.parse(process.env.accounts)
 };
 
 /* Connecting to API */
@@ -19,19 +20,6 @@ beforeAll(() => {
 	});
 });
 
-/* Tests */
-test('checks dates are in correct order', async ()=>{
-	const startDate = subDays(new Date(), 1);
-	const endDate = subDays(startDate, 3);
-
-	try{
-		const accounts = await API.getDailyData(startDate, endDate);
-		throw new Error('Did not catch dates in wrong order');
-	}
-	catch(e){
-		return;
-	}
-});
 test('grabs list of daily data', async ()=>{
 	const endDate = subDays(new Date(), 1);
 	const startDate = subDays(endDate, 3);
@@ -43,6 +31,9 @@ test('grabs list of daily data', async ()=>{
 	}
 	else if(accounts.length === 0){
 		throw new Error('Returned an empty array');
+	}
+	else if(accounts.length !== config.accounts.length){
+		throw new Error('Returned a larger than accounts array');
 	}
 	else{
 		return;
@@ -56,6 +47,9 @@ test('grabs list of monthly data', async ()=>{
 	}
 	else if(accounts.length === 0){
 		throw new Error('Returned an empty array');
+	}
+	else if(accounts.length !== config.accounts.length){
+		throw new Error('Returned a larger than accounts array');
 	}
 	else{
 		return;

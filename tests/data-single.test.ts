@@ -5,7 +5,8 @@ import {subDays} from 'date-fns';
 /* Config */
 const config = {
 	username: process.env.username,
-	password: process.env.password
+	password: process.env.password,
+	account: process.env.account
 };
 
 /* Connecting to API */
@@ -19,16 +20,19 @@ beforeAll(() => {
 	});
 });
 
-/* Tests */
-test('checks dates are in correct order', async ()=>{
-	const startDate = subDays(new Date(), 1);
-	const endDate = subDays(startDate, 3);
+test('grabs single account from API', async ()=>{
+	const accounts = await API.getAccounts();
 
-	try{
-		const accounts = await API.getDailyData(startDate, endDate);
-		throw new Error('Did not catch dates in wrong order');
+	if(!(accounts instanceof Array)){
+		throw new Error('Returned a none array');
 	}
-	catch(e){
+	else if(accounts.length === 0){
+		throw new Error('Returned an empty array');
+	}
+	else if(accounts.length !== 1){
+		throw new Error('Returned an array greater than 1');
+	}
+	else{
 		return;
 	}
 });
@@ -44,6 +48,9 @@ test('grabs list of daily data', async ()=>{
 	else if(accounts.length === 0){
 		throw new Error('Returned an empty array');
 	}
+	else if(accounts.length !== 1){
+		throw new Error('Returned a larger than one array');
+	}
 	else{
 		return;
 	}
@@ -56,6 +63,9 @@ test('grabs list of monthly data', async ()=>{
 	}
 	else if(accounts.length === 0){
 		throw new Error('Returned an empty array');
+	}
+	else if(accounts.length !== 1){
+		throw new Error('Returned a larger than one array');
 	}
 	else{
 		return;

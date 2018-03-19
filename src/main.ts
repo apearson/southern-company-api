@@ -16,31 +16,24 @@ export interface SouthernCompanyConfig{
 }
 
 export default class SouthernCompanyAPI extends EventEmitter{
-	private config?: SouthernCompanyConfig;
+	private config: SouthernCompanyConfig;
 	private jwt?: string;
 	private company?: Company;
 
-	constructor(config?: SouthernCompanyConfig){
+	constructor(config: SouthernCompanyConfig){
 		super();
 
 		/* Saving config */
 		this.config = config;
 
 		/* Connecting to Southern Company API */
-		if(config){
-			this.login().then((accounts)=>{
-				/* Emitting connected event */
-				this.emit('connected', accounts);
-			});
-		}
+		this.login().then((accounts)=>{
+			/* Emitting connected event */
+			this.emit('connected', accounts);
+		});
 	}
 
 	private async login(){
-		/* Making sure we have a config to login with */
-		if(!this.config){
-			throw new Error('Can not login: No config');
-		}
-
 		/* Request Verification Token */
 		const loginToken = await this.getRequestVerificationToken();
 
@@ -64,13 +57,11 @@ export default class SouthernCompanyAPI extends EventEmitter{
 	private getAccountsArray(){
 		/* Calulating which accounts to fetch data from */
 		let accounts: string[] = [];
-		if(this.config){
-			if(this.config.accounts){
-				accounts = this.config.accounts;
-			}
-			else if(this.config.account){
-				accounts.push(this.config.account);
-			}
+		if(this.config.accounts){
+			accounts = this.config.accounts;
+		}
+		else if(this.config.account){
+			accounts.push(this.config.account);
 		}
 
 		/* Returning accounts array */
@@ -224,7 +215,7 @@ export default class SouthernCompanyAPI extends EventEmitter{
 		}));
 
 		/* Filtering accounts if needed */
-		if(this.config && (this.config.account || this.config.accounts)){
+		if(this.config.account || this.config.accounts){
 			/* Creating accounts array to compare against */
 			const accountsFilter = this.config.accounts || [];
 			if(this.config.account){
@@ -371,6 +362,14 @@ export default class SouthernCompanyAPI extends EventEmitter{
 		const monthlyData = resData.map((response, index)=>{
 			/* Parsing graph data */
 			const graphData = JSON.parse(response.Data.Data).graphset[0];
+
+			/* Checking to make sure there is data */
+			if(graphData['scale-x'] === undefined){
+				return ({
+					accountNumber: accounts[index],
+					data: [],
+				});
+			}
 
 			/* Mapping data to single array */
 			const rawMonthData = graphData['scale-x'].labels.map((date: string, index: number)=>{

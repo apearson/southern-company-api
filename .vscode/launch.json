@@ -15,10 +15,10 @@
 			"protocol": "inspector"
 		},
 		{
-			"name": "Test.ts",
+			"name": "Debug",
 			"type": "node",
 			"request": "launch",
-			"args": ["./tests/test.ts"],
+			"args": ["./tests/debug.ts"],
 			"runtimeArgs": ["--nolazy", "-r", "ts-node/register"],
 			"sourceMaps": true,
 			"cwd": "${workspaceRoot}",
