@@ -1,5 +1,5 @@
 /* External Interfaces */
-import {Account, AccountDetails} from './general';
+import {API} from './API';
 
 /* Responses Format */
 export interface APILoginResponse{
@@ -43,11 +43,12 @@ export interface JwtTokenResponse extends APIResponse{
 }
 
 export interface GetAllAccountsResponse extends APIResponse{
-	Data: Account[];
+	Data: API.Account[];
 }
 export interface AccountDetailsResponse extends APIResponse{
-	Data: AccountDetails;
+	Data: API.AccountDetails;
 }
+
 export interface MonthlyDataResponse extends APIResponse{
 	Data: {
 		Data: string;
@@ -70,6 +71,8 @@ export interface MonthlyDataResponse extends APIResponse{
 		IsPartialMonth: boolean;
 		RemainingDays: number;
 		DaysToDate: number;
-
 	}
+}
+export interface DailyDataResponse extends APIResponse{
+	Data: API.MyPowerUsageResponse
 }

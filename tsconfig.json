@@ -1,22 +1,22 @@
 {
-  "compilerOptions": {
-    "outDir": "dist",
+	"compilerOptions": {
+		"outDir": "dist",
 		"noImplicitAny": false,
 		"declaration": true,
 
-    "module": "commonjs",
-    "moduleResolution": "node",
+		"module": "commonjs",
+		"moduleResolution": "node",
 
 		"target": "es2016",
 
-    "sourceMap": true,
+		"sourceMap": true,
 
-    "strict": true,
-    "lib": [
-      "es2018"
-    ]
-  },
-  "include": [
-    "./src/**/*"
-  ]
+		"strict": true,
+		"lib": [
+			"es2018"
+		]
+	},
+	"include": [
+		"./src/**/*"
+	]
 }

@@ -20,11 +20,14 @@ API.on('connected', async (accounts)=> {
 
 	try{
 		// const monthlyData = await API.getMonthlyData();
-		const startDate = new Date(2018, 2, 11);
+		const startDate = new Date(2018, 2, 15);
 		const endDate = new Date();
 
 		const dailyData = await API.getDailyData(startDate, endDate);
-		console.log(dailyData);
+		console.log(JSON.stringify(dailyData));
+
+		const monthlyData = await API.getMonthlyData();
+		console.log(JSON.stringify(monthlyData));
 	}
 	catch(e){
 		console.error(e);
