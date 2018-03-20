@@ -3,11 +3,14 @@
 	"version": "2.0.0",
 	"description": "A Library for pulling power usage data from Southern Company or Southern Company subcompanies",
 	"main": "./dist/main.js",
+	"types": "./dist/main.d.ts",
 	"scripts": {
-		"build": "tsc",
+		"clean": "rm -rf dist",
+		"build": "npm run clean && tsc",
 		"test": "jest",
 		"test:ci": "jest && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
-		"test:local": "ts-node ./tests/debug.ts"
+		"test:local": "ts-node ./tests/debug.ts",
+		"prepublishOnly": "npm run build"
 	},
 	"author": "John Andrew Tyler Pearson <andrew@apearson.io> (https://www.apearson.io)",
 	"repository": {
