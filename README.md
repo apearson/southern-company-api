@@ -1,49 +1,54 @@
-# Southern Company API [![Travis](https://img.shields.io/travis/apearson/southern-company-api.svg)](https://travis-ci.org/apearson/southern-company-api) [![Coveralls](https://img.shields.io/coveralls/apearson/southern-company-api.svg)](https://coveralls.io/github/apearson/southern-company-api)
+# Southern Company API
+[![Travis](https://img.shields.io/travis/apearson/southern-company-api.svg)](https://travis-ci.org/apearson/southern-company-api) [![Coveralls](https://img.shields.io/coveralls/apearson/southern-company-api.svg)](https://coveralls.io/github/apearson/southern-company-api)
+[![npm](https://img.shields.io/npm/dt/southern-company-api.svg)](https://www.npmjs.com/package/southern-company-api)
+[![license](https://img.shields.io/npm/l/southern-company-api.svg)](https://github.com/apearson/southern-company-api/blob/master/LICENSE.md)
+
 
 ## Example
-```js
-/* Requiring library */
-const SouthernCompanyAPI = require('southern-company-api');
+```typescript
+/* Importing Library */
+import {SouthernCompanyAPI} from 'southern-company-api';
 
 /* Instantiating API */
-const SouthernCompany = new SouthernCompanyAPI({username: 'username', password: 'password'});
+const SouthernCompany = new SouthernCompanyAPI({
+  username: 'username',
+  password: 'password',
+  accounts: ['123123123']
+});
 
 /* Listening for login success */
 SouthernCompany.on('connected', ()=>{
   console.info('Connected...');
 
-  /* Displaying accounts found */
-  console.info('Accounts:', SouthernCompany.accounts, '\n');
-
   /* Getting Monthly Data */
-  SouthernCompany.getMonthlyData().catch(console.error)
-    .then((data)=>{
-      console.info('Monthly Data');
-      console.info(JSON.stringify(data));
-      console.info();
-    });
+  const monthlyData = await SouthernCompany.getMonthlyData();
+
+  /* Printing Monthly Data */
+  console.info('Monthly Data', JSON.stringify(data));
 
   /* Getting Daily Data */
-  SouthernCompany.getDailyData('05/01/2017', '05/05/2017').catch(console.error)
-    .then((data)=>{
-      console.info('Daily Data');
-      console.info(JSON.stringify(data));
-      console.info();
-    });
+  const startDate = new Date(2017, 05, 01);
+  const endDate = new Date();
+  const dailyData = await SouthernCompany.getDailyData(startDate, endDate);
+
+  /* Printing daily data */
+  console.info('Daily Data', JSON.stringify(data));
 });
 
 /* Listening for any errors */
 SouthernCompany.on('error', console.error);
-
 ```
 
 ## API
 
 ### Login
 Login by passing username and password as a config object when instantiating.
-```js
+```typescript
 /* Instantiating API */
-const SouthernCompany = new SouthernCompanyAPI({username: 'username', password: 'password'});
+const API = new SouthernCompanyAPI({
+  username: 'username',
+  password: 'password'
+});
 ```
 
 ### Events
@@ -54,34 +59,36 @@ Current Events:
   * reconnected (On reconnection success)
   * error (On login failure)
 
-```js
+```typescript
 /* Listening for connection success */
-SouthernCompany.on('connected', ()=>{
+API.on('connected', ()=>{
   console.info('Connected...');
 });
 
 /* Listening for connection success */
-SouthernCompany.on('reconnected', ()=>{
+API.on('reconnected', ()=>{
   console.info('Reconnected...');
 });
 
 
 /* Listening for any errors */
-SouthernCompany.on('error', console.error);
+API.on('error', (error)=>{
+  console.error('An error occured', error);
+});
 ```
 
 ### Data methods
 #### getMonthlyData()
-**Description**   
+**Description**
 This method collects all monthly data on all accounts from the time they were opened to the last complete month of data.
 
 **Arguments**
-  * None  
+  * None
 
-**Returns**  
+**Returns**
   * Promise
 
-**Promise Return**  
+**Promise Return**
   * `data` Each index of array is an account retrieved
       * `name` Name of the account
       * `accountNumber` Account number
@@ -93,40 +100,38 @@ This method collects all monthly data on all accounts from the time they were op
   * `error` Description of error
 
 **Example**
-```js
+```typescript
 /* Getting Monthly Data */
-AlabamaPower.getMonthlyData().catch(console.error)
-  .then((data)=>{
-    console.info('Monthly Data');
-    console.info(JSON.stringify(data));
-    console.info();
-  });
+const monthlyData = await API.getMonthlyData();
+
+/* Printing monthly data */
+console.info('Monthly Data', JSON.stringify(monthlyData));
 
 /* Result */
 [{
   "name":"Apartment",
   "accountNumber":0000000000,
   "data":[
-    {"date":"02/17","cost":66.66,"kWh":416,"bill":87},
-    {"date":"03/17","cost":62.23,"kWh":380,"bill":87},
-    {"date":"04/17","cost":65.42,"kWh":406,"bill":87}
+    {"date":"2017-03-01T06:00:00.000Z","cost":66.66,"kWh":416,"bill":87},
+    {"date":"2017-04-01T06:00:00.000Z","cost":62.23,"kWh":380,"bill":87},
+    {"date":"2017-05-01T06:00:00.000Z","cost":65.42,"kWh":406,"bill":87}
   ]
 }]
 ```
 
 
 #### getDailyData()
-**Description**   
+**Description**
 This method collects daily data from the `startDate` provided to the `endDate` provided.
 
 **Arguments**
-  * `startDate` First date (MM/DD/YYY) to include in collection
-  * `endDate` Last date (MM/DD/YYYY) to include in collection
+  * `startDate` First date (Date) to include in collection
+  * `endDate` Last date (Date) to include in collection
 
-**Returns**  
+**Returns**
   * Promise
 
-**Promise Return**  
+**Promise Return**
   * `data` Each index of array is an account retrieved
       * `name` Name of the account
       * `accountNumber` Account number
@@ -134,25 +139,24 @@ This method collects daily data from the `startDate` provided to the `endDate` p
         * `date` M/D/YYYY of data
         * `cost` Total energy cost for the date
         * `kWh` Total amount of kWh used during the date
-  * `error` Description of error
 
 **Example**
-```js
+```typescript
 /* Getting Daily Data */
-SouthernCompany.getDailyData('05/01/2017', '05/02/2017').catch(console.error)
-  .then((data)=>{
-    console.timeEnd('Daily Data');
-    console.info(JSON.stringify(data));
-    console.info();
-  });  
+const startDate = new Date(2017, 05, 01);
+const endDate = new Date(2017, 05, 02);
+const dailyData = await SouthernCompany.getDailyData(startDate, endDate);
+
+/* Printing daily data */
+console.info('Daily Data', JSON.stringify(data));
 
 /* Result */
-[{  
+[{
   "name":"Apartment",
   "accountNumber": 0000000000,
   "data":[
-    {"date":"5/1/2017", "cost":2.17, "kWh":12.76},
-    {"date":"5/2/2017", "cost":77, "kWh":77}
+    {"date":"2017-05-01T06:00:00.000Z", "cost":2.17, "kWh":12.76},
+    {"date":"2017-05-02T06:00:00.000Z", "cost":77, "kWh":77}
   ]
 }]
 ```
@@ -173,7 +177,7 @@ SouthernCompany.getDailyData('05/01/2017', '05/02/2017').catch(console.error)
   * `Body` (JSON Object):
     * `username`: `username`
     * `password`: `password`
-    * `params`  
+    * `params`
       * `ReturnUrl` 'null'
 4. Grab the `ScWebToken` from the JSON response. Can be found in the `response.data.html` as a value on a hidden input with the name ScWebToken
 

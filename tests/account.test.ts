@@ -1,5 +1,5 @@
 /* Libraries */
-import SouthernCompanyAPI from '../src/main';
+import {SouthernCompanyAPI} from '../src/main';
 
 /* Config */
 const config = {

@@ -15,7 +15,7 @@ export interface SouthernCompanyConfig{
 	accounts?: string[];
 }
 
-export default class SouthernCompanyAPI extends EventEmitter{
+export class SouthernCompanyAPI extends EventEmitter{
 	private config: SouthernCompanyConfig;
 	private jwt?: string;
 	private company?: Company;
@@ -83,7 +83,7 @@ export default class SouthernCompanyAPI extends EventEmitter{
 
 		/* Checking for unsuccessful login */
 		if(response.status !== 200){
-			throw new Error(`Failed to get request verification token: ${response.statusText}`);
+			throw new Error(`Failed to get request verification token: ${response.statusText} ${await response.text()}`);
 		}
 
 		/* Converting login page response to text to search for token */
@@ -112,18 +112,19 @@ export default class SouthernCompanyAPI extends EventEmitter{
 		}
 
 		/* Grab a ScwebToken by log in */
-		const response = await fetch('https://webauth.southernco.com/api/login', {
+		const options = {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json; charset=utf-8',
 				RequestVerificationToken: requestVerificationToken,
 			},
 			body: JSON.stringify({username, password, params: {ReturnUrl: "null"}})
-		});
+		};
+		const response = await fetch('https://webauth.southernco.com/api/login', options);
 
 		/* Checking for unsuccessful login */
 		if(response.status !== 200){
-			throw new Error(`Failed to get ScWebToken: ${response.statusText}`);
+			throw new Error(`Failed to get ScWebToken: ${response.statusText} ${await response.text()} ${JSON.stringify(options)}`);
 		}
 
 		/* Parsing response as JSON to match search response for token */
@@ -148,15 +149,16 @@ export default class SouthernCompanyAPI extends EventEmitter{
 	}
 	private async getJwt(ScWebToken: string){
 		/* Trading ScWebToken for Jwt */
-		const response = await fetch('https://customerservice2.southerncompany.com/Account/LogginValidated/JwtToken', {
+		const options = {
 			headers:{
 				Cookie: `ScWebToken=${ScWebToken}`
 			}
-		});
+		};
+		const response = await fetch('https://customerservice2.southerncompany.com/Account/LogginValidated/JwtToken', options);
 
 		/* Checking for unsuccessful login */
 		if(response.status !== 200){
-			throw new Error(`Failed to get JWT: ${response.statusText}`);
+			throw new Error(`Failed to get JWT: ${response.statusText} ${await response.text()} ${JSON.stringify(options)}`);
 		}
 
 		/* Regex to parse JWT out of headers */
@@ -192,15 +194,16 @@ export default class SouthernCompanyAPI extends EventEmitter{
 		}
 
 		/* Grabbing accounts from API */
-		const response = await fetch('https://customerservice2api.southerncompany.com/api/account/getAllAccounts', {
+		const options = {
 			headers: {
 				Authorization: `bearer ${this.jwt}`
 			}
-		});
+		};
+		const response = await fetch('https://customerservice2api.southerncompany.com/api/account/getAllAccounts', options);
 
 		/* Checking for unsuccessful api call */
 		if(response.status !== 200){
-			throw new Error(`Failed to get accounts: ${response.statusText}`);
+			throw new Error(`Failed to get accounts: ${response.statusText} ${JSON.stringify(options)}`);
 		}
 
 		/* Parsing response */
@@ -233,6 +236,11 @@ export default class SouthernCompanyAPI extends EventEmitter{
 
 	/* Data methods */
 	public async getDailyData(startDate: Date, endDate: Date){
+		/* Checking to make sure we have a JWT to use */
+		if(!this.jwt){
+			throw new Error('Could not get daily data: Not Logged In');
+		}
+
 		/* Sanity checking arguments */
 		if(endDate < startDate){
 			throw new Error('Invalid Dates');
@@ -333,6 +341,11 @@ export default class SouthernCompanyAPI extends EventEmitter{
 		}));
 	}
 	public async getMonthlyData(){
+		/* Checking to make sure we have a JWT to use */
+		if(!this.jwt){
+			throw new Error('Could not get monthly data: Not Logged In');
+		}
+
 		/* Calulating which accounts to fetch data from */
 		let accounts = this.getAccountsArray();
 
