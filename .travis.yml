@@ -2,8 +2,8 @@ language: node_js
 node_js:
 - "stable"
 
-install:
-- npm install
-
 script:
-- npm run test:ci
+- yarn run test:ci
+
+cache:
+  yarn: true
