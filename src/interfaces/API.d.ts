@@ -134,4 +134,31 @@ declare namespace API{
 		RemainingDays: number;
 		DaysToDate: number;
 	}
+
+	export interface GraphDataSeries{
+		type: string;
+		scales: string;
+		values: GraphSetSeriesValue[];
+		text: string;
+		"font-family": string;
+		"background-color": string;
+		"legend-item": object;
+		rules: GraphSetRule[];
+		"tooltip-text": string;
+		"data-dateTime": any[];
+		tooltip: object;
+		"legend-marker": object;
+	}
+	export interface GraphSetRule{
+		rule: string;
+		"background-color": string;
+		"border-color": string;
+		"border-width": string;
+		tooltip: object;
+		"tooltip-text": string;
+		"font-color": string;
+	}
+	export interface GraphSetSeriesValue{
+		[key: number]: number;
+	}
 }

@@ -1,11 +1,12 @@
 /* Libraries */
 import {EventEmitter} from 'events';
 import fetch from 'node-fetch';
-import {differenceInCalendarDays, subDays, addDays, parse} from 'date-fns';
+import {differenceInCalendarDays, subDays, addDays} from 'date-fns';
 
 /* Interfaces */
-import {Company, DailyData, MonthlyData, Account} from './interfaces/general';
+import {Company, DailyData, MonthlyData, Account, UsageData} from './interfaces/general';
 import {GetAllAccountsResponse, LoginResponse, MonthlyDataResponse, DailyDataResponse} from './interfaces/responses';
+import {API} from './interfaces/API';
 
 /* Interfaces */
 export interface SouthernCompanyConfig{
@@ -305,22 +306,48 @@ export class SouthernCompanyAPI extends EventEmitter{
 
 			/* For both cost and usage, find both weekend and weekday series, concat them together */
 			const rawUsageData = graphData.map((data)=>{
-				let dataArray = [];
+				let dataArray: API.GraphSetSeriesValue[] = [];
+				let badIndexes: number[] = [];
 
 				/* Make sure series are not empty (no data) */
 				if(data.series != null){
-					data.series.forEach((series)=>{
+					data.series.forEach((series: API.GraphDataSeries)=>{
 						if(series.text === 'Regular Usage' || series.text === 'Weekend'){
+							/* Pulling data out and recording data */
 							dataArray = dataArray.concat(series.values);
+
+							/* Checking for any bad indexes */
+							if(series.rules){
+								badIndexes.concat(series.rules
+									.filter((rule)=> rule['tooltip-text'] === 'Delayed Reading')
+									.map((rule)=>{
+										const matches = (/%i == (\d+)/gi).exec(rule.rule);
+
+										return (matches && matches[1])? matches[1] : 'none';
+									})
+									.filter((index)=> index !== 'none')
+									.map((index)=> parseInt(index)));
+							}
 						}
 					});
 				}
 
-				/* Sorting the data based on day number */
-				dataArray.sort(this.dataSort);
+				/* Sorting the data based on day number and filtering out bad indexes */
+				const filteredData = dataArray
+					.sort(this.dataSort)
+					.map((data)=>{
+						/* Copying object to change data to undefined if needed */
+						const mappedData: UsageData = Object.assign(data);
+
+						if(badIndexes.includes(data[0])){
+							mappedData[1] = null;
+						}
+
+						return mappedData;
+					});;
 
 				/* Giving back completed arrays */
-				return dataArray;
+				return filteredData;
 			});
 
 			/* Creating Response array */

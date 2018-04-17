@@ -11,6 +11,11 @@ export enum AccountType{
 	'Personal',
 }
 
+/* Internal Types */
+export interface UsageData{
+	[key:number]: number | null;
+}
+
 /* Method Response Types */
 export interface Account{
 	name: string;
@@ -22,8 +27,8 @@ export interface DailyData{
 	accountNumber: string;
 	data: {
 		date: Date;
-		kWh: number;
-		cost: number;
+		kWh: number | null;
+		cost: number | null;
 	}[];
 }
 
