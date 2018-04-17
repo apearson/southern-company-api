@@ -25,7 +25,7 @@ test('checks dates are in correct order', async ()=>{
 	const endDate = subDays(startDate, 3);
 
 	try{
-		const accounts = await API.getDailyData(startDate, endDate);
+		const data = await API.getDailyData(startDate, endDate);
 		throw new Error('Did not catch dates in wrong order');
 	}
 	catch(e){
@@ -34,14 +34,14 @@ test('checks dates are in correct order', async ()=>{
 });
 test('grabs list of daily data', async ()=>{
 	const endDate = subDays(new Date(), 1);
-	const startDate = subDays(endDate, 3);
+	const startDate = subDays(endDate, 10);
 
-	const accounts = await API.getDailyData(startDate, endDate);
+	const data = await API.getDailyData(startDate, endDate);
 
-	if(!(accounts instanceof Array)){
+	if(!(data instanceof Array)){
 		throw new Error('Returned a none array');
 	}
-	else if(accounts.length === 0){
+	else if(data.length === 0){
 		throw new Error('Returned an empty array');
 	}
 	else{
@@ -49,12 +49,12 @@ test('grabs list of daily data', async ()=>{
 	}
 });
 test('grabs list of monthly data', async ()=>{
-	const accounts = await API.getMonthlyData();
+	const data = await API.getMonthlyData();
 
-	if(!(accounts instanceof Array)){
+	if(!(data instanceof Array)){
 		throw new Error('Returned a none array');
 	}
-	else if(accounts.length === 0){
+	else if(data.length === 0){
 		throw new Error('Returned an empty array');
 	}
 	else{
