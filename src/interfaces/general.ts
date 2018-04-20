@@ -32,11 +32,13 @@ export interface DailyData{
 	}[];
 }
 
-export interface MonthlyData{
+export interface AccountMonthlyData{
 	accountNumber: string;
-	data: {
-		date: Date;
-		kWh: number;
-		cost: number;
-	}[];
+	data: MonthlyData[];
+}
+export interface MonthlyData{
+	date: Date;
+	kWh?: number;
+	cost?: number;
+	bill?: number;
 }

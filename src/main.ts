@@ -4,7 +4,7 @@ import fetch from 'node-fetch';
 import {differenceInCalendarDays, subDays, addDays} from 'date-fns';
 
 /* Interfaces */
-import {Company, DailyData, MonthlyData, Account, UsageData} from './interfaces/general';
+import {Company, DailyData, AccountMonthlyData, MonthlyData, Account, UsageData} from './interfaces/general';
 import {GetAllAccountsResponse, LoginResponse, MonthlyDataResponse, DailyDataResponse} from './interfaces/responses';
 import {API} from './interfaces/API';
 
@@ -411,22 +411,40 @@ export class SouthernCompanyAPI extends EventEmitter{
 				});
 			}
 
+			/* Checking to see if there is any optional data */
+			const kWhData = graphData.series.find((series)=> series.text === 'Usage (kWh)');
+			const costData = graphData.series.find((series)=> series.text === 'Service Amount (Cost $)');
+			const billData = graphData.series.find((series)=> series.text === 'Budget Bill Amount');
+
 			/* Mapping data to single array */
-			const rawMonthData = graphData['scale-x'].labels.map((date: string, index: number)=>{
+			const rawMonthData: MonthlyData[] = graphData['scale-x'].labels.map((date: string, index: number)=>{
 				const dateString = date.split('/').map((num)=> parseInt(num));
-				const dateObj = new Date(2000 + dateString[1], dateString[0] - 1);
-				return {
-					date: dateObj,
-					kWh: graphData.series[1].values[index],
-					cost: graphData.series[0].values[index]
+
+				/* Monthly data object */
+				const monthData: MonthlyData = {
+					date: new Date(2000 + dateString[1], dateString[0] - 1),
+				};
+
+				/* Adding any available data */
+				if(kWhData){
+					monthData.kWh = kWhData.values[index];
 				}
+				if(costData){
+					monthData.cost = costData.values[index];
+				}
+				if(billData){
+					monthData.bill = billData.values[index];
+				}
+
+				/* Returning data */
+				return monthData;
 			});
 
 			/* Filtering months with zero kWh */
 			const data = rawMonthData.filter((data)=> data.kWh !== 0);
 
 			/* Returning month data */
-			const monthlyData: MonthlyData = {
+			const monthlyData: AccountMonthlyData = {
 				accountNumber: accounts[index],
 				data,
 			};
