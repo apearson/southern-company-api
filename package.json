@@ -1,6 +1,6 @@
 {
 	"name": "southern-company-api",
-	"version": "2.1.0",
+	"version": "2.1.1",
 	"description": "A Library for pulling power usage data from Southern Company or Southern Company subcompanies",
 	"main": "./dist/main.js",
 	"types": "./dist/main.d.ts",
