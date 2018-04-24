@@ -155,7 +155,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 				Cookie: `ScWebToken=${ScWebToken}`
 			}
 		};
-		const response = await fetch('https://customerservice2.southerncompany.com/Account/LogginValidated/JwtToken', options);
+		const response = await fetch('https://customerservice2.southerncompany.com/Account/LoginValidated/JwtToken', options);
 
 		/* Checking for unsuccessful login */
 		if(response.status !== 200){
