@@ -68,7 +68,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 		/* Returning accounts array */
 		return accounts;
 	}
-	private formatDate(date){
+	private static formatDate(date){
 		return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} 12:00:00 AM`;
 	}
 	private dataSort(a, b){
@@ -264,8 +264,8 @@ export class SouthernCompanyAPI extends EventEmitter{
 				},
 				body: JSON.stringify({
 					accountNumber: account,
-					StartDate: this.formatDate(correctedStartDate),
-					EndDate: this.formatDate(endDate),
+					StartDate: SouthernCompanyAPI.formatDate(correctedStartDate),
+					EndDate: SouthernCompanyAPI.formatDate(endDate),
 					DataType: 'Usage',
 					OPCO: 'APC',
 					intervalBehavior: 'Automatic'
@@ -281,8 +281,8 @@ export class SouthernCompanyAPI extends EventEmitter{
 				},
 				body: JSON.stringify({
 					accountNumber: account,
-					StartDate: this.formatDate(correctedStartDate),
-					EndDate: this.formatDate(endDate),
+					StartDate: SouthernCompanyAPI.formatDate(correctedStartDate),
+					EndDate: SouthernCompanyAPI.formatDate(endDate),
 					DataType: 'Cost',
 					OPCO: 'APC',
 					intervalBehavior: 'Automatic'
@@ -355,7 +355,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 				accountNumber: accounts[index],
 				data: [],
 			};
-			for(let i = 0; i < differenceInCalendarDays(endDate, startDate); i++){
+			for(let i = 0; i <= differenceInCalendarDays(endDate, startDate); i++){
 				formattedUsageData.data.push({
 					date: addDays(startDate, i),
 					kWh: rawUsageData[0][i][1],
