@@ -32,22 +32,22 @@ test('checks dates are in correct order', async ()=>{
 		return;
 	}
 });
-test('grabs list of daily data', async ()=>{
-	const endDate = subDays(new Date(), 1);
-	const startDate = subDays(endDate, 10);
+// test('grabs list of daily data', async ()=>{
+// 	const endDate = subDays(new Date(), 1);
+// 	const startDate = subDays(endDate, 10);
 
-	const data = await API.getDailyData(startDate, endDate);
+// 	const data = await API.getDailyData(startDate, endDate);
 
-	if(!(data instanceof Array)){
-		throw new Error('Returned a none array');
-	}
-	else if(data.length === 0){
-		throw new Error('Returned an empty array');
-	}
-	else{
-		return;
-	}
-});
+// 	if(!(data instanceof Array)){
+// 		throw new Error('Returned a none array');
+// 	}
+// 	else if(data.length === 0){
+// 		throw new Error('Returned an empty array');
+// 	}
+// 	else{
+// 		return;
+// 	}
+// });
 test('grabs list of monthly data', async ()=>{
 	const data = await API.getMonthlyData();
 

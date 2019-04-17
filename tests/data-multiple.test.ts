@@ -20,25 +20,25 @@ beforeAll(() => {
 	});
 });
 
-test('grabs list of daily data', async ()=>{
-	const endDate = subDays(new Date(), 1);
-	const startDate = subDays(endDate, 3);
+// test('grabs list of daily data', async ()=>{
+// 	const endDate = subDays(new Date(), 1);
+// 	const startDate = subDays(endDate, 3);
 
-	const data = await API.getDailyData(startDate, endDate);
+// 	const data = await API.getDailyData(startDate, endDate);
 
-	if(!(data instanceof Array)){
-		throw new Error('Returned a none array');
-	}
-	else if(data.length === 0){
-		throw new Error('Returned an empty array');
-	}
-	else if(data.length !== config.accounts.length){
-		throw new Error('Returned a larger than accounts array');
-	}
-	else{
-		return;
-	}
-});
+// 	if(!(data instanceof Array)){
+// 		throw new Error('Returned a none array');
+// 	}
+// 	else if(data.length === 0){
+// 		throw new Error('Returned an empty array');
+// 	}
+// 	else if(data.length !== config.accounts.length){
+// 		throw new Error('Returned a larger than accounts array');
+// 	}
+// 	else{
+// 		return;
+// 	}
+// });
 test('grabs list of monthly data', async ()=>{
 	const data = await API.getMonthlyData();
 
