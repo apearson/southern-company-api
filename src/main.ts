@@ -91,7 +91,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 		const loginPage = await response.text();
 
 		/* Regex to match token on page */
-		const regex = /webAuth\.aft = '(\S+)'/i;
+		const regex = /data-aft="(\S+)"/i;
 
 		/* Matching page and finding token */
 		let token: string;
@@ -112,12 +112,12 @@ export class SouthernCompanyAPI extends EventEmitter{
 			throw new Error(`Failed to get ScWebToken: Need a valid config`);
 		}
 
-		/* Grab a ScwebToken by log in */
+		/* Grab a ScWebToken by log in */
 		const options = {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json; charset=utf-8',
-				RequestVerificationToken: requestVerificationToken,
+				'RequestVerificationToken': requestVerificationToken,
 			},
 			body: JSON.stringify({username, password, params: {ReturnUrl: "null"}})
 		};
@@ -130,7 +130,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 
 		/* Parsing response as JSON to match search response for token */
 		const resData: LoginResponse = await response.json();
-
+		//console.log(response.headers);
 		/* Regex to match token in response */
 		const regex = /<input type='hidden' name='ScWebToken' value='(\S+)'>/i;
 
@@ -145,14 +145,16 @@ export class SouthernCompanyAPI extends EventEmitter{
 		}
 
 		/* Returning ScWebToken */
+		//console.log(await response.text());
 		return ScWebToken;
 
 	}
-	private async getJwt(ScWebToken: string){
+	private async getJwt(ScWebToken: string, supplauthtoken: string=''){
 		/* Trading ScWebToken for Jwt */
 		const options = {
 			headers:{
-				Cookie: `ScWebToken=${ScWebToken}`
+				Cookie: `ScWebToken=${ScWebToken}`,
+				'f5avrbbbbbbbbbbbbbbbb': supplauthtoken
 			}
 		};
 		const response = await fetch('https://customerservice2.southerncompany.com/Account/LoginValidated/JwtToken', options);
@@ -164,6 +166,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 
 		/* Regex to parse JWT out of headers */
 		const regex = /ScJwtToken=(\S*);/i;
+		//console.log(response);
 
 		/* Parsing response header to get token */
 		let token: string;
@@ -176,6 +179,16 @@ export class SouthernCompanyAPI extends EventEmitter{
 				token = matches[1];
 			}
 			else{
+				if (supplauthtoken=='') {
+					const regex2 = /f5avrbbbbbbbbbbbbbbbb=(\S*);/i;
+					const matches2 = cookies.match(regex2);
+					if(matches2 && matches2.length > 1){
+						supplauthtoken = matches2[1];
+					}
+					console.log(`Trying with supplauthtoken ${supplauthtoken}`);
+					const jwt = await this.getJwt(ScWebToken,supplauthtoken);
+					return jwt;
+				}
 				throw new Error(`Failed to get JWT: Could not find any token matches in headers`);
 			}
 		}
