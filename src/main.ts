@@ -469,7 +469,6 @@ export class SouthernCompanyAPI extends EventEmitter{
 				}
 
 				/* Returning data */
-				console.log(monthData);
 				return monthData;
 			});
 
