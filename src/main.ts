@@ -2,6 +2,7 @@
 import {EventEmitter} from 'events';
 import fetch from 'node-fetch';
 import {differenceInCalendarDays, subDays, addDays} from 'date-fns';
+import {stringify} from 'querystring';
 
 /* Interfaces */
 import {Company, DailyData, AccountMonthlyData, MonthlyData, Account, UsageData} from './interfaces/general';
@@ -91,7 +92,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 		const loginPage = await response.text();
 
 		/* Regex to match token on page */
-		const regex = /webAuth\.aft = '(\S+)'/i;
+		const regex = /data-aft="(\S+)"/i;
 
 		/* Matching page and finding token */
 		let token: string;
@@ -112,12 +113,12 @@ export class SouthernCompanyAPI extends EventEmitter{
 			throw new Error(`Failed to get ScWebToken: Need a valid config`);
 		}
 
-		/* Grab a ScwebToken by log in */
+		/* Grab a ScWebToken by log in */
 		const options = {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json; charset=utf-8',
-				RequestVerificationToken: requestVerificationToken,
+				'RequestVerificationToken': requestVerificationToken,
 			},
 			body: JSON.stringify({username, password, params: {ReturnUrl: "null"}})
 		};
@@ -130,7 +131,6 @@ export class SouthernCompanyAPI extends EventEmitter{
 
 		/* Parsing response as JSON to match search response for token */
 		const resData: LoginResponse = await response.json();
-
 		/* Regex to match token in response */
 		const regex = /<input type='hidden' name='ScWebToken' value='(\S+)'>/i;
 
@@ -150,18 +150,50 @@ export class SouthernCompanyAPI extends EventEmitter{
 	}
 	private async getJwt(ScWebToken: string){
 		/* Trading ScWebToken for Jwt */
-		const options = {
-			headers:{
-				Cookie: `ScWebToken=${ScWebToken}`
-			}
+		const swtoptions = {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded'
+			},
+			body: stringify({"ScWebToken":ScWebToken})
 		};
-		const response = await fetch('https://customerservice2.southerncompany.com/Account/LoginValidated/JwtToken', options);
+		const swtresponse = await fetch('https://customerservice2.southerncompany.com/Account/LoginComplete?ReturnUrl=null', swtoptions);
 
 		/* Checking for unsuccessful login */
+		if(swtresponse.status !== 200){
+			const cook = swtresponse.headers.get('set-cookie');
+			throw new Error(`Failed to get secondary ScWebToken: ${swtresponse.statusText} ${cook} ${JSON.stringify(swtoptions)}`);
+		}
+				/* Regex to parse JWT out of headers */
+		const swtregex = /ScWebToken=(\S*);/i;
+
+		/* Parsing response header to get token */
+		let swtoken: string;
+		let swtcookies = swtresponse.headers.get('set-cookie');
+		if(swtcookies){
+			const swtmatches = swtcookies.match(swtregex);
+
+			/* Checking for matches */
+			if(swtmatches && swtmatches.length > 1){
+				swtoken = swtmatches[1];
+			}
+			else{
+				throw new Error(`Failed to get secondary ScWebToken: Could not find any token matches in headers`);
+			}
+		}
+		else{
+			throw new Error(`Failed to get secondary ScWebToken: No Cookies were sent back`);
+		}
+		// Now fetch JWT after secondary ScWebToken
+		const options = {
+			headers:{
+				Cookie: `ScWebToken=${swtoken}`
+			}
+		};
+		const response = await fetch('https://customerservice2.southerncompany.com/Account/LoginValidated/JwtToken', options);		
 		if(response.status !== 200){
 			throw new Error(`Failed to get JWT: ${response.statusText} ${await response.text()} ${JSON.stringify(options)}`);
 		}
-
 		/* Regex to parse JWT out of headers */
 		const regex = /ScJwtToken=(\S*);/i;
 

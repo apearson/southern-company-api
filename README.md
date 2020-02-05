@@ -8,6 +8,8 @@
 ```typescript
 /* Importing Library */
 import {SouthernCompanyAPI} from 'southern-company-api';
+/* Or requiring for a script */
+var SouthernCompanyAPI = require('../southern-company-api').SouthernCompanyAPI;
 
 /* Instantiating API */
 const SouthernCompany = new SouthernCompanyAPI({
@@ -20,19 +22,25 @@ const SouthernCompany = new SouthernCompanyAPI({
 SouthernCompany.on('connected', ()=>{
   console.info('Connected...');
 
-  /* Getting Monthly Data */
-  const monthlyData = await SouthernCompany.getMonthlyData();
+  async function fetchMonthly() {
+    /* Getting Monthly Data */
+    const monthlyData = await SouthernCompany.getMonthlyData();
 
-  /* Printing Monthly Data */
-  console.info('Monthly Data', JSON.stringify(data));
+    /* Printing Monthly Data */
+    console.info('Monthly Data', JSON.stringify(monthlyData));
+  }
+  fetchMonthly();
 
-  /* Getting Daily Data */
-  const startDate = new Date(2017, 05, 01);
-  const endDate = new Date();
-  const dailyData = await SouthernCompany.getDailyData(startDate, endDate);
+  async function fetchDaily() {
+    /* Getting Daily Data */
+    const startDate = new Date(2020, 2, 1);
+    const endDate = new Date();
+    const dailyData = await SouthernCompany.getDailyData(startDate, endDate);
 
-  /* Printing daily data */
-  console.info('Daily Data', JSON.stringify(data));
+    /* Printing daily data */
+    console.info('Daily Data', JSON.stringify(dailyData));
+  }
+  fetchDaily();
 });
 
 /* Listening for any errors */
@@ -180,12 +188,12 @@ console.info('Daily Data', JSON.stringify(data));
     * `params`
       * `ReturnUrl` 'null'
 4. Grab the `ScWebToken` from the JSON response. Can be found in the `response.data.html` as a value on a hidden input with the name ScWebToken
-
-5. This Southern Company Web Token can be traded in for a Southern Company JSON Web Token (`ScJwtToken`) that can be used with the API.
+5. Grab the new `ScWebToken` from the set cookies from a secondary LoginComplete request.
+6. This secondary Southern Company Web Token can be traded in for a Southern Company JSON Web Token (`ScJwtToken`) that can be used with the API.
   * `Method` GET
   * `URL` https://customerservice2.southerncompany.com/Account/LogginValidated/JwtToken
   * `Headers`
     * `Cookie` ScWebToken=`ScWebToken`
-6. Grab the `ScJwtToken` from the response's cookies
+7. Grab the `ScJwtToken` from the response's cookies
   * Cookie's name is ScJwtToken and contains the ScJwtToken
   * This `ScJwtToken` can be used to authenticate all other API requests.
