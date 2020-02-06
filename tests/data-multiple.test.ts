@@ -1,9 +1,9 @@
 /* Libraries */
-import {SouthernCompanyAPI} from '../src/main';
+import {SouthernCompanyAPI, SouthernCompanyConfig} from '../src/main';
 import {subDays} from 'date-fns';
 
 /* Config */
-const config = {
+const config: SouthernCompanyConfig = {
 	username: process.env.username,
 	password: process.env.password,
 	accounts: JSON.parse(process.env.accounts)

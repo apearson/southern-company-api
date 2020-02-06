@@ -1,8 +1,8 @@
 /* Libraries */
-import {SouthernCompanyAPI} from '../src/main';
+import {SouthernCompanyAPI, SouthernCompanyConfig} from '../src/main';
 
 /* Config */
-const config = {
+const config: SouthernCompanyConfig = {
 	username: process.env.username,
 	password: process.env.password
 };
