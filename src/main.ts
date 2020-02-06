@@ -48,6 +48,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 		/* Getting accounts if none are supplied */
 		if(this.config.account == undefined && this.config.accounts == undefined){
 			const accounts = await this.getAccounts();
+
 			this.config.accounts = accounts.map((account)=> account.number.toString());
 		}
 
@@ -131,6 +132,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 
 		/* Parsing response as JSON to match search response for token */
 		const resData: LoginResponse = await response.json();
+
 		/* Regex to match token in response */
 		const regex = /<input type='hidden' name='ScWebToken' value='(\S+)'>/i;
 
@@ -190,10 +192,12 @@ export class SouthernCompanyAPI extends EventEmitter{
 				Cookie: `ScWebToken=${swtoken}`
 			}
 		};
-		const response = await fetch('https://customerservice2.southerncompany.com/Account/LoginValidated/JwtToken', options);		
+		const response = await fetch('https://customerservice2.southerncompany.com/Account/LoginValidated/JwtToken', options);
+
 		if(response.status !== 200){
 			throw new Error(`Failed to get JWT: ${response.statusText} ${await response.text()} ${JSON.stringify(options)}`);
 		}
+
 		/* Regex to parse JWT out of headers */
 		const regex = /ScJwtToken=(\S*);/i;
 
@@ -253,7 +257,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 		/* Filtering accounts if needed */
 		if(this.config.account || this.config.accounts){
 			/* Creating accounts array to compare against */
-			const accountsFilter = this.config.accounts || [];
+			const accountsFilter = this.config.accounts ?? [];
 			if(this.config.account){
 				/* If only one account then place it in the array */
 				accountsFilter.push(this.config.account);
