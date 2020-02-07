@@ -4,8 +4,8 @@ import {subDays} from 'date-fns';
 
 /* Config */
 const config: SouthernCompanyConfig = {
-	username: process.env.username,
-	password: process.env.password
+	username: process.env.username as string,
+	password: process.env.password as string
 };
 
 /* Connecting to API */
