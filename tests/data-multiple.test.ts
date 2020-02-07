@@ -3,10 +3,10 @@ import {SouthernCompanyAPI, SouthernCompanyConfig} from '../src/main';
 import {subDays} from 'date-fns';
 
 /* Config */
-const config: SouthernCompanyConfig = {
+const config = {
 	username: process.env.username as string,
 	password: process.env.password as string,
-	accounts: JSON.parse(process.env.accounts) as string[]
+	accounts: JSON.parse(process.env.accounts as string) as string[]
 };
 
 /* Connecting to API */
