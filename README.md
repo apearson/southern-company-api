@@ -191,7 +191,7 @@ console.info('Daily Data', JSON.stringify(data));
 5. Grab the new `ScWebToken` from the set cookies from a secondary LoginComplete request.
 6. This secondary Southern Company Web Token can be traded in for a Southern Company JSON Web Token (`ScJwtToken`) that can be used with the API.
   * `Method` GET
-  * `URL` https://customerservice2.southerncompany.com/Account/LogginValidated/JwtToken
+  * `URL` https://customerservice2.southerncompany.com/Account/LoginValidated/JwtToken
   * `Headers`
     * `Cookie` ScWebToken=`ScWebToken`
 7. Grab the `ScJwtToken` from the response's cookies
