@@ -5,8 +5,8 @@ import {differenceInCalendarDays, subDays, addDays} from 'date-fns';
 import {stringify} from 'querystring';
 
 /* Interfaces */
-import {Company, DailyData, AccountMonthlyData, MonthlyData, Account, UsageData} from './interfaces/general';
-import {GetAllAccountsResponse, LoginResponse, MonthlyDataResponse, DailyDataResponse} from './interfaces/responses';
+import {Company, DailyData, AccountMonthlyData, MonthlyData, Account, UsageData, AllBills} from './interfaces/general';
+import {GetAllAccountsResponse, LoginResponse, MonthlyDataResponse, DailyDataResponse, GetAllBillsResponse} from './interfaces/responses';
 import {API} from './interfaces/API';
 
 /* Interfaces */
@@ -491,4 +491,31 @@ export class SouthernCompanyAPI extends EventEmitter{
 		/* Returning monthly data */
 		return monthlyData;
 	}
+
+		/* Get All Bills methods */
+		public async getAllBillsData(){
+			/* Checking to make sure we have a JWT to use */
+			if(!this.jwt){
+				throw new Error('Could not get accounts: Not Logged In');
+			}
+	
+			 /* Grabbing all billing from API */
+			 const options = {
+                headers: {
+                    Authorization: `bearer ${this.jwt}`
+                }
+            };
+			const response = await fetch('https://customerservice2api.southerncompany.com/api/Billing/getAllBills', options);
+	
+			/* Checking for unsuccessful api call */
+            if (response.status !== 200) {
+                throw new Error(`Failed to get accounts: ${response.statusText} ${JSON.stringify(options)}`);
+            }
+	
+			/* Parsing response */
+			const allbills: GetAllBillsResponse = await response.json();
+	
+			/* Returning allbills */
+			return allbills;
+		}
 }

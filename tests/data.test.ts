@@ -61,3 +61,17 @@ test('grabs list of monthly data', async ()=>{
 		return;
 	}
 });
+
+test('grabs all bills data', async ()=>{
+	const data = await API.getAllBillsData();
+
+	if(!(data instanceof Array)){
+		throw new Error('Returned a none array');
+	}
+	else if(data.length === 0){
+		throw new Error('Returned an empty array');
+	}
+	else{
+		return;
+	}
+});

@@ -76,3 +76,7 @@ export interface MonthlyDataResponse extends APIResponse{
 export interface DailyDataResponse extends APIResponse{
 	Data: API.MyPowerUsageResponse
 }
+
+export interface GetAllBillsResponse extends APIResponse{
+	Data: API.AllBills[];
+}
