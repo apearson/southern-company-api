@@ -19,7 +19,7 @@ export interface SouthernCompanyConfig{
 
 export class SouthernCompanyAPI extends EventEmitter{
 	private config: SouthernCompanyConfig;
-	private jwt?: string;
+	public jwt?: string;
 	private company?: Company;
 
 	constructor(config: SouthernCompanyConfig){
@@ -414,17 +414,12 @@ export class SouthernCompanyAPI extends EventEmitter{
 
 		/* Creating a request for each account */
 		const requests = accounts.map((account)=>{
-			return fetch('https://customerservice2api.southerncompany.com/api/MyPowerUsage/MonthlyGraph', {
-				method: 'POST',
+			return fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MonthlyGraph/${account}`, {
+				method: 'GET',
 				headers: {
 					'Content-Type': 'application/json; charset=UTF-8',
 					Authorization: `bearer ${this.jwt}`
-				},
-				body: JSON.stringify({
-					accountNumber: account,
-					OnlyShowCostAndUsage: false,
-					IsWidget: false,
-				})
+				}
 			});
 		});
 
