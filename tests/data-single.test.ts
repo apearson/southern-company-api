@@ -20,22 +20,6 @@ beforeAll(() => {
 	});
 });
 
-test('grabs single account from API', async ()=>{
-	const accounts = await API.getAccounts();
-
-	if(!(accounts instanceof Array)){
-		throw new Error('Returned a none array');
-	}
-	else if(accounts.length === 0){
-		throw new Error('Returned an empty array');
-	}
-	else if(accounts.length !== 1){
-		throw new Error('Returned an array greater than 1');
-	}
-	else{
-		return;
-	}
-});
 // test('grabs list of daily data', async ()=>{
 // 	const endDate = subDays(new Date(), 1);
 // 	const startDate = subDays(endDate, 3);
@@ -63,9 +47,6 @@ test('grabs list of monthly data', async ()=>{
 	}
 	else if(data.length === 0){
 		throw new Error('Returned an empty array');
-	}
-	else if(data.length !== 1){
-		throw new Error('Returned a larger than one array');
 	}
 	else{
 		return;
