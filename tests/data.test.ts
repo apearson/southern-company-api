@@ -61,3 +61,14 @@ test('grabs list of monthly data', async ()=>{
 		return;
 	}
 });
+
+test('grabs all bills data', async ()=>{
+	const data = await API.getAllBillsData();
+
+	console.log(JSON.stringify(data));
+
+	if(!data)
+		throw new Error('Returned no data');
+
+	return;
+});
