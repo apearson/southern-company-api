@@ -12,6 +12,10 @@ module.exports = {
 		}
 	},
 
+	setupFiles: [
+		'dotenv/config'
+	],
+
 	/* Test Converage */
 	collectCoverage: true,
 	coverageDirectory: 'coverage',

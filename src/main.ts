@@ -110,9 +110,8 @@ export class SouthernCompanyAPI extends EventEmitter{
 	}
 	private async getScWebToken(requestVerificationToken: string, username: string, password: string){
 		/* Checking if there is a valid config */
-		if(!this.config){
+		if(!this.config)
 			throw new Error(`Failed to get ScWebToken: Need a valid config`);
-		}
 
 		/* Grab a ScWebToken by log in */
 		const options = {
@@ -121,32 +120,30 @@ export class SouthernCompanyAPI extends EventEmitter{
 				'Content-Type': 'application/json; charset=utf-8',
 				'RequestVerificationToken': requestVerificationToken,
 			},
-			body: JSON.stringify({username, password, params: {ReturnUrl: "null"}})
+			body: JSON.stringify({
+				username, password, targetPage: 1, params: {ReturnUrl: "null"}} )
 		};
+
 		const response = await fetch('https://webauth.southernco.com/api/login', options);
 
 		/* Checking for unsuccessful login */
-		if(response.status !== 200){
+		if(response.status !== 200)
 			throw new Error(`Failed to get ScWebToken: ${response.statusText} ${await response.text()} ${JSON.stringify(options)}`);
-		}
 
 		/* Parsing response as JSON to match search response for token */
 		const resData: LoginResponse = await response.json();
 
 		/* Regex to match token in response */
-		const regex = /<input type='hidden' name='ScWebToken' value='(\S+)'>/i;
+		const matchRegex = /NAME='ScWebToken' value='(\S+\.\S+\.\S+)'/mi;
 
 		/* Matching response's form to get ScWebToken */
-		let ScWebToken: string;
-		const matches = resData.data.html.match(regex);
-		if(matches && matches.length > 1){
-			ScWebToken = matches[1];
-		}
-		else{
-			throw new Error(`Could not find ScWebToken in response`);
-		}
+		const data = matchRegex.exec(resData.data.html);
+		const ScWebToken =  data != null ? data[1] : null;
 
-		/* Returning ScWebToken */
+		if(ScWebToken == undefined)
+			throw new Error(`Could not find ScWebToken in response`)
+
+			/* Returning ScWebToken */
 		return ScWebToken;
 
 	}

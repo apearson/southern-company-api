@@ -16,3 +16,4 @@ dist
 #Testing
 coverage
 tests/debug.ts
+.env
