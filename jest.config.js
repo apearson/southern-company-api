@@ -1,22 +1,19 @@
 /* Jest Config */
 module.exports = {
-	/* General Settings */
-	transform: {
-		"^.+\\.tsx?$": "ts-jest"
-	},
-	testRegex: "(/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$",
-	moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
-	globals: {
-		'ts-jest': {
-			skipBabel: true
-		}
-	},
-
-	setupFiles: [
-		'dotenv/config'
-	],
-
-	/* Test Converage */
-	collectCoverage: true,
-	coverageDirectory: 'coverage',
+  testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$',
+  moduleFileExtensions: [
+    'js',
+    'json',
+    'jsx',
+    'node',
+    'ts',
+    'tsx',
+  ],
+  setupFiles: [
+    'dotenv/config',
+  ],
+  collectCoverage: true,
+  coverageDirectory: 'coverage',
+  preset: 'ts-jest',
+  testMatch: null,
 }
