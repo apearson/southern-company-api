@@ -1,11 +1,13 @@
 name: Integration Tests
 
+
 on:
   push:
     branches: [ master ]
 
 jobs:
   build:
+    environment: integration_testing
 
     runs-on: ubuntu-latest
 
