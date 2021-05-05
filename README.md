@@ -1,12 +1,13 @@
 # Southern Company API
-[![Travis](https://img.shields.io/travis/apearson/southern-company-api.svg)](https://travis-ci.org/apearson/southern-company-api) [![Coveralls](https://img.shields.io/coveralls/apearson/southern-company-api.svg)](https://coveralls.io/github/apearson/southern-company-api)
+[![Github Actions](https://github.com/apearson/southern-company-api/actions/workflows/integration.yml/badge.svg)](https://github.com/apearson/southern-company-api/actions/workflows/integration.yml)
+[![Coveralls](https://img.shields.io/coveralls/apearson/southern-company-api.svg)](https://coveralls.io/github/apearson/southern-company-api)
 [![npm](https://img.shields.io/npm/dt/southern-company-api.svg)](https://www.npmjs.com/package/southern-company-api)
 [![license](https://img.shields.io/npm/l/southern-company-api.svg)](https://github.com/apearson/southern-company-api/blob/master/LICENSE.md)
 
-Node.js Library to access utility data from Southern Company power utilities (Alabama Power, Georgia Power, Gulf Power, Mississippi Power) 
+Node.js Library to access utility data from Southern Company power utilities (Alabama Power, Georgia Power, Gulf Power, Mississippi Power)
 
-**In search of testers with active accounts not in a time of use plan.**    
-No coding required, just need to verify API responses.  Open an issue if you would like to help. 
+**In search of testers with active accounts not in a time of use plan.**
+No coding required, just need to verify API responses.  Open an issue if you would like to help.
 
 ## Example
 ```typescript

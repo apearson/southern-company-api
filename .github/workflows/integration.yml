@@ -18,7 +18,7 @@ jobs:
       run: npm ci
 
     - name: Run Integration Tests
-      run: npm test
+      run: npm test:ci
       env:
         username: ${{ secrets.USERNAME }}
         password: ${{ secrets.PASSWORD }}
