@@ -18,9 +18,15 @@ jobs:
       run: npm ci
 
     - name: Run Integration Tests
-      run: npm run test:ci
+      run: npm run test
       env:
         username: ${{ secrets.USERNAME }}
         password: ${{ secrets.PASSWORD }}
         accounts: ${{ secrets.ACCOUNTS }}
         account: ${{ secrets.ACCOUNT }}
+
+    - name: Coveralls
+      uses: coverallsapp/github-action@v1.1.2
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+

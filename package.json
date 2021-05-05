@@ -12,7 +12,6 @@
 		"clean": "rm -rf dist",
 		"build": "npm run clean && tsc",
 		"test": "jest",
-		"test:ci": "jest && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
 		"debug": "ts-node ./tests/debug.ts",
 		"prepublishOnly": "npm run build"
 	},
