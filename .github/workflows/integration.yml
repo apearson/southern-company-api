@@ -13,8 +13,12 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: '14.x'
-    - run: npm ci
-    - run: npm test
+
+    - name: Install NPM Packages
+      run: npm ci
+
+    - name: Run Integration Tests
+      run: npm test
       env:
         username: ${{ secrets.USERNAME }}
         password: ${{ secrets.PASSWORD }}
