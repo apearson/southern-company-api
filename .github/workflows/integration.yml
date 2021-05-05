@@ -1,5 +1,6 @@
 name: Integration Tests
 
+
 on: push
 
 jobs:
@@ -13,9 +14,9 @@ jobs:
       with:
         node-version: '14.x'
     - run: npm ci
-    - run: echo $PASSWORD
+    - run: npm test
       env:
-        USERNAME: ${{ secrets.USERNAME }}
-        PASSWORD: ${{ secrets.PASSWORD }}
-        ACCOUNTS: ${{ secrets.ACCOUNTS }}
-        ACCOUNT: ${{ secrets.ACCOUNT }}
+        username: ${{ secrets.USERNAME }}
+        password: ${{ secrets.PASSWORD }}
+        accounts: ${{ secrets.ACCOUNTS }}
+        account: ${{ secrets.ACCOUNT }}
