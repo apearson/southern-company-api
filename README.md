@@ -4,7 +4,7 @@
 [![npm](https://img.shields.io/npm/dt/southern-company-api.svg)](https://www.npmjs.com/package/southern-company-api)
 [![license](https://img.shields.io/npm/l/southern-company-api.svg)](https://github.com/apearson/southern-company-api/blob/master/LICENSE.md)
 
-Node.js Library to access utility data from Southern Company power utilities (Alabama Power, Georgia Power, Gulf Power, Mississippi Power)
+Node.js Library to access utility data from Southern Company power utilities (Alabama Power, Georgia Power, Mississippi Power)
 
 **In search of testers with active accounts not in a time of use plan.**
 No coding required, just need to verify API responses.  Open an issue if you would like to help.
