@@ -3,6 +3,7 @@ import {EventEmitter} from 'events';
 import fetch from 'node-fetch';
 import {differenceInCalendarDays, subDays, addDays} from 'date-fns';
 import {stringify} from 'querystring';
+import {URL, URLSearchParams} from 'url';
 
 /* Interfaces */
 import {Company, DailyData, AccountMonthlyData, MonthlyData, Account, UsageData, AllBills} from './interfaces/general';
@@ -70,8 +71,18 @@ export class SouthernCompanyAPI extends EventEmitter{
 		/* Returning accounts array */
 		return accounts;
 	}
-	private static formatDate(date){
+	private static formatDateTime(date){
 		return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} 12:00:00 AM`;
+	}
+
+	private static formatDate(date){
+		const paddedMonth = (date.getMonth() + 1)
+			.toString()
+			.padStart(2,'0');
+		const paddedDay = (date.getDate())
+			.toString()
+			.padStart(2,'0');
+		return `${paddedMonth}/${paddedDay}/${date.getFullYear()}`;
 	}
 	private dataSort(a, b){
 		if(a[0] > b[0]) return 1;
@@ -297,8 +308,8 @@ export class SouthernCompanyAPI extends EventEmitter{
 				},
 				body: JSON.stringify({
 					accountNumber: account,
-					StartDate: SouthernCompanyAPI.formatDate(correctedStartDate),
-					EndDate: SouthernCompanyAPI.formatDate(endDate),
+					StartDate: SouthernCompanyAPI.formatDateTime(correctedStartDate),
+					EndDate: SouthernCompanyAPI.formatDateTime(endDate),
 					DataType: 'Usage',
 					OPCO: 'APC',
 					intervalBehavior: 'Automatic'
@@ -314,8 +325,8 @@ export class SouthernCompanyAPI extends EventEmitter{
 				},
 				body: JSON.stringify({
 					accountNumber: account,
-					StartDate: SouthernCompanyAPI.formatDate(correctedStartDate),
-					EndDate: SouthernCompanyAPI.formatDate(endDate),
+					StartDate: SouthernCompanyAPI.formatDateTime(correctedStartDate),
+					EndDate: SouthernCompanyAPI.formatDateTime(endDate),
 					DataType: 'Cost',
 					OPCO: 'APC',
 					intervalBehavior: 'Automatic'
@@ -482,6 +493,37 @@ export class SouthernCompanyAPI extends EventEmitter{
 
 		/* Returning monthly data */
 		return monthlyData;
+	}
+
+	public async getHourlyData(startDate: Date, endDate: Date){
+		const url = this.buildHourlyURL(startDate, endDate);
+
+		const response = await fetch(url, {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json; charset=UTF-8',
+				Authorization: `bearer ${this.jwt}`
+			}
+		});
+
+		const jsonData = await response.json();
+		console.log(JSON.parse(jsonData.Data.Data))
+	}
+
+	public buildHourlyURL(startDate: Date, endDate: Date) {
+		let accounts = this.getAccountsArray();
+
+		const url = new URL(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${accounts[0]}/Hourly`)
+
+		url.search = new URLSearchParams({
+			StartDate: SouthernCompanyAPI.formatDate(startDate),
+			EndDate: SouthernCompanyAPI.formatDate(endDate),
+			ServicePointNumber: process.env.servicePointNumber,
+			OPCO: 'GPC',
+			intervalBehavior: 'Automatic'
+		}).toString()
+
+		return url;
 	}
 
 	/* Get All Bills methods */
