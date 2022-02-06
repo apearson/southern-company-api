@@ -52,3 +52,8 @@ test('grabs list of monthly data', async ()=>{
 		return;
 	}
 });
+
+test('grab list of hourly data' , async () => {
+
+	const result = await API.getHourlyData(new Date("02/02/2022"), new Date("02/03/2022"))
+})

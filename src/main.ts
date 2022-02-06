@@ -506,8 +506,14 @@ export class SouthernCompanyAPI extends EventEmitter{
 	public async getHourlyData(startDate: Date, endDate: Date){
 		let accounts = this.getAccountsArray();
 
-		const servicePointNumber = await this.fetchServicePointNumber(accounts[0])
-		const url = this.buildHourlyURL(startDate, endDate, accounts[0], servicePointNumber);
+		const hourlyDataReponse = await Promise.all(accounts.map(account => this.buildHourlyDataResponse(account, startDate, endDate)))
+
+		return hourlyDataReponse
+	}
+
+	private async buildHourlyDataResponse(account: string, startDate: Date, endDate: Date) {
+		const servicePointNumber = await this.fetchServicePointNumber(account)
+		const url = this.buildHourlyURL(startDate, endDate, account, servicePointNumber);
 
 		const response = await fetch(url, {
 			method: 'GET',
@@ -517,9 +523,9 @@ export class SouthernCompanyAPI extends EventEmitter{
 			}
 		});
 
-        if (response.status !== 200) {
-            throw new Error(`Failed to get hourly data: ${response.statusText} with endpoint: ${url}`);
-        }
+		if (response.status !== 200) {
+			throw new Error(`Failed to get hourly data: ${response.statusText} with endpoint: ${url}`);
+		}
 
 		const jsonResponse: API.hourlyMPUData = await response.json();
 
@@ -527,7 +533,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 
 		let combinedGraphData
 
-		if(graphData){
+		if (graphData) {
 			const {cost: {data: costData}, usage: {data: usageData}, temp: {data: tempData}} = graphData.series
 
 			combinedGraphData = costData.reduce((acc, curr, index, array) => {
@@ -542,11 +548,10 @@ export class SouthernCompanyAPI extends EventEmitter{
 		}
 
 		const hourlyDataReponse: HourlyData = {
-			accountNumber: accounts[0],
+			accountNumber: account,
 			data: combinedGraphData
 		}
-
-		return hourlyDataReponse
+		return hourlyDataReponse;
 	}
 
 	public buildHourlyURL(startDate: Date, endDate: Date, accountNumber: string, servicePointNumber: string) {
