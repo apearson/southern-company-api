@@ -9,6 +9,7 @@ import {URL, URLSearchParams} from 'url';
 import {Company, DailyData, AccountMonthlyData, MonthlyData, Account, UsageData, AllBills} from './interfaces/general';
 import {GetAllAccountsResponse, LoginResponse, MonthlyDataResponse, DailyDataResponse, GetAllBillsResponse} from './interfaces/responses';
 import {API} from './interfaces/API';
+import hourlyMPUData = API.hourlyMPUData;
 
 /* Interfaces */
 export interface SouthernCompanyConfig{
@@ -58,7 +59,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 	}
 
 	/* Utility Methods */
-	private getAccountsArray(){
+	private getAccountsArray(): string[]{
 		/* Calulating which accounts to fetch data from */
 		let accounts: string[] = [];
 		if(this.config.accounts){
@@ -496,7 +497,10 @@ export class SouthernCompanyAPI extends EventEmitter{
 	}
 
 	public async getHourlyData(startDate: Date, endDate: Date){
-		const url = this.buildHourlyURL(startDate, endDate);
+		let accounts = this.getAccountsArray();
+
+		const servicePointNumber = await this.fetchServicePointNumber(accounts[0])
+		const url = this.buildHourlyURL(startDate, endDate, accounts[0], servicePointNumber);
 
 		const response = await fetch(url, {
 			method: 'GET',
@@ -506,19 +510,25 @@ export class SouthernCompanyAPI extends EventEmitter{
 			}
 		});
 
-		const jsonData = await response.json();
-		console.log(JSON.parse(jsonData.Data.Data))
+        if (response.status !== 200) {
+            throw new Error(`Failed to get hourly data: ${response.statusText} with endpoint: ${url}`);
+        }
+
+		const jsonResponse: API.hourlyMPUData = await response.json();
+
+		const graphData: API.hourlyMPUGraphData = JSON.parse(jsonResponse.Data.Data)
+
+		console.log(graphData)
 	}
 
-	public buildHourlyURL(startDate: Date, endDate: Date) {
-		let accounts = this.getAccountsArray();
+	public buildHourlyURL(startDate: Date, endDate: Date, accountNumber: string, servicePointNumber: string) {
 
-		const url = new URL(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${accounts[0]}/Hourly`)
+		const url = new URL(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${accountNumber}/Hourly`)
 
 		url.search = new URLSearchParams({
 			StartDate: SouthernCompanyAPI.formatDate(startDate),
 			EndDate: SouthernCompanyAPI.formatDate(endDate),
-			ServicePointNumber: process.env.servicePointNumber,
+			ServicePointNumber: servicePointNumber,
 			OPCO: 'GPC',
 			intervalBehavior: 'Automatic'
 		}).toString()
@@ -553,4 +563,16 @@ export class SouthernCompanyAPI extends EventEmitter{
 		/* Returning allbills */
 		return allbills;
 	}
+
+    private async fetchServicePointNumber(accountNumber: string): Promise<string> {
+        const response = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/getMPUBasicAccountInformation/${accountNumber}/GPC`)
+
+        if (response.status !== 200) {
+            throw new Error(`Failed to fetch service point data, received: ${response.statusText}, for account number:  ${accountNumber}`);
+        }
+
+        const json: API.getMPUBasicAccountInformationResponse = await response.json()
+
+        return json.Data.meterAndServicePoints[0].servicePointNumber
+    }
 }
