@@ -398,4 +398,21 @@ declare namespace API {
             isInGulfDivestiturePilot?: boolean;
         }
     }
+
+    export interface getMPUBasicAccountInformationResponse {
+        statusCode: null,
+        Message: string,
+        MessageType: number,
+        Data: {
+            estimatedBillIndicator: boolean,
+            isOnlyEligibleForMonthly: boolean,
+            meterAndServicePoints: [
+                {
+                    meterNumber: string,
+                    servicePointNumber: string
+                }
+            ]
+        },
+        IsScApiResult: boolean
+    }
 }
