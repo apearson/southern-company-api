@@ -4,9 +4,17 @@ import fetch from 'node-fetch';
 import {differenceInCalendarDays, subDays, addDays} from 'date-fns';
 import {stringify} from 'querystring';
 import {URL, URLSearchParams} from 'url';
-
 /* Interfaces */
-import {Company, DailyData, AccountMonthlyData, MonthlyData, Account, UsageData, AllBills} from './interfaces/general';
+import {
+	Company,
+	DailyData,
+	AccountMonthlyData,
+	MonthlyData,
+	Account,
+	UsageData,
+	AllBills,
+	HourlyData
+} from './interfaces/general';
 import {GetAllAccountsResponse, LoginResponse, MonthlyDataResponse, DailyDataResponse, GetAllBillsResponse} from './interfaces/responses';
 import {API} from './interfaces/API';
 
@@ -517,7 +525,28 @@ export class SouthernCompanyAPI extends EventEmitter{
 
 		const graphData: API.hourlyMPUGraphData = JSON.parse(jsonResponse.Data.Data)
 
-		console.log(graphData)
+		let combinedGraphData
+
+		if(graphData){
+			const {cost: {data: costData}, usage: {data: usageData}, temp: {data: tempData}} = graphData.series
+
+			combinedGraphData = costData.reduce((acc, curr, index, array) => {
+				acc.push({
+					date: new Date(curr.name),
+					cost: curr.y,
+					kWh: usageData[index].y,
+					temp: tempData[index].y
+				})
+				return acc
+			}, new Array())
+		}
+
+		const hourlyDataReponse: HourlyData = {
+			accountNumber: accounts[0],
+			data: combinedGraphData
+		}
+
+		return hourlyDataReponse
 	}
 
 	public buildHourlyURL(startDate: Date, endDate: Date, accountNumber: string, servicePointNumber: string) {
@@ -564,7 +593,13 @@ export class SouthernCompanyAPI extends EventEmitter{
 	}
 
     private async fetchServicePointNumber(accountNumber: string): Promise<string> {
-        const response = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/getMPUBasicAccountInformation/${accountNumber}/GPC`)
+        const options = {
+            headers: {
+                Authorization: `bearer ${this.jwt}`
+            }
+        };
+
+        const response = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/getMPUBasicAccountInformation/${accountNumber}/GPC`, options)
 
         if (response.status !== 200) {
             throw new Error(`Failed to fetch service point data, received: ${response.statusText}, for account number:  ${accountNumber}`);
