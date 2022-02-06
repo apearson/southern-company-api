@@ -415,4 +415,83 @@ declare namespace API {
         },
         IsScApiResult: boolean
     }
+
+    export interface hourlyMPUData {
+        "StatusCode": number,
+        "Message": string,
+        "MessageType": number,
+        "Data": {
+            "contractriderDesc": null,
+            "Data": string,
+            "HighTempIndex": number,
+            "LowTempIndex": number,
+            "TemperatureIndex": number,
+            "NotificationIndex": number,
+            "AboveAlertIndex": number,
+            "DailyAlertIndex": number,
+            "WeekendIndex": number,
+            "ReminderIndex": number,
+            "ProjectedBillAmountHigh": null,
+            "ProjectedBillAmountLow": null,
+            "AverageDailyCost": null,
+            "Days": number,
+            "DollarsToDate": null,
+            "TotalkWhUsed": number,
+            "HasData": true,
+            "HasEstimatedBill": false,
+            "IsPartialMonth": false,
+            "RemainingDays": number,
+            "DaysToDate": number,
+            "AlertThreshold": number,
+            "AlertThresholdExceeded": false,
+            "UsageTable": null
+        },
+        "ModelErrors": [],
+        "IsScApiResult": true
+    }
+
+    export interface hourlyMPUGraphData {
+        "xAxis": {
+            "labels": string[]
+        },
+        "series": {
+            "cost": {
+                "data": [
+                    {
+                        "x": number,
+                        "y": number,
+                        "name": string,
+                        "resolution": string
+                    }
+                ]
+            },
+            "usage": {
+                "data": [
+                    {
+                        "x": number,
+                        "y": number,
+                        "name": string,
+                        "resolution": string
+                    }
+                ]
+            },
+            "costDelayed": {
+                "data": []
+            },
+            "usageDelayed": {
+                "data": []
+            },
+            "temp": {
+                "data": [
+                    {
+                        "x": number,
+                        "y":  number,
+                        "name": string,
+                        "resolution": string
+                    }
+                ]
+            }
+        }
+    }
+
 }
