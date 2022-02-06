@@ -9,7 +9,6 @@ import {URL, URLSearchParams} from 'url';
 import {Company, DailyData, AccountMonthlyData, MonthlyData, Account, UsageData, AllBills} from './interfaces/general';
 import {GetAllAccountsResponse, LoginResponse, MonthlyDataResponse, DailyDataResponse, GetAllBillsResponse} from './interfaces/responses';
 import {API} from './interfaces/API';
-import hourlyMPUData = API.hourlyMPUData;
 
 /* Interfaces */
 export interface SouthernCompanyConfig{
