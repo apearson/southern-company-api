@@ -13,7 +13,8 @@ import {
 	Account,
 	UsageData,
 	AllBills,
-	HourlyData
+	HourlyData,
+	AccountHourlyData
 } from './interfaces/general';
 import {GetAllAccountsResponse, LoginResponse, MonthlyDataResponse, DailyDataResponse, GetAllBillsResponse} from './interfaces/responses';
 import {API} from './interfaces/API';
@@ -541,13 +542,13 @@ export class SouthernCompanyAPI extends EventEmitter{
 					date: new Date(curr.name),
 					cost: curr.y,
 					kWh: usageData[index].y,
-					temp: tempData[index].y
+					tempF: tempData[index].y
 				})
 				return acc
 			}, new Array())
 		}
 
-		const hourlyDataReponse: HourlyData = {
+		const hourlyDataReponse: AccountHourlyData = {
 			accountNumber: account,
 			data: combinedGraphData
 		}
