@@ -1,7 +1,7 @@
 /* Libraries */
 import {EventEmitter} from 'events';
 import fetch from 'node-fetch';
-import {differenceInCalendarDays, subDays, addDays} from 'date-fns';
+import {differenceInCalendarDays, subDays, addDays, format} from 'date-fns';
 import {stringify} from 'querystring';
 import {URL, URLSearchParams} from 'url';
 /* Interfaces */
@@ -85,13 +85,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 	}
 
 	private static formatDate(date){
-		const paddedMonth = (date.getMonth() + 1)
-			.toString()
-			.padStart(2,'0');
-		const paddedDay = (date.getDate())
-			.toString()
-			.padStart(2,'0');
-		return `${paddedMonth}/${paddedDay}/${date.getFullYear()}`;
+		return format(date, "MM/dd/yyyy")
 	}
 	private dataSort(a, b){
 		if(a[0] > b[0]) return 1;
@@ -525,7 +519,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 		});
 
 		if (response.status !== 200) {
-			throw new Error(`Failed to get hourly data: ${response.statusText} with endpoint: ${url}`);
+			throw new Error(`Failed to get hourly data, response code: ${response.status}, ${response.statusText}. For endpoint: ${url}`);
 		}
 
 		const jsonResponse: API.hourlyMPUData = await response.json();
