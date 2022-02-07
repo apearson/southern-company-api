@@ -6,12 +6,12 @@ import {SouthernCompanyConfig} from "./main";
 
 const config: SouthernCompanyConfig = {
     username: process.env.username as string,
-    password: process.env.password as string
+    password: process.env.password as string,
 };
 
-let jwt
+let jwt, accounts
 
-const getJwt = async () =>  {
+const getJwt = async () => {
     if (!jwt) {
         /* Request Verification Token */
         const loginToken = await getRequestVerificationToken();
@@ -25,63 +25,26 @@ const getJwt = async () =>  {
     return jwt
 }
 
-const login = async () => {
-    /* Getting accounts if none are supplied */
-    if (config.account == undefined && config.accounts == undefined) {
-        const accounts = await getAccounts();
-
-        config.accounts = accounts.map((account) => account.number.toString());
-    }
-
-    /* Returning */
-    return getAccountsArray();
-}
 
 /* Utility Methods */
-const getAccountsArray = (): string[] => {
-    /* Calulating which accounts to fetch data from */
-    let accounts: string[] = [];
-    if (config.accounts) {
-        accounts = config.accounts;
-    } else if (config.account) {
-        accounts.push(config.account);
-    }
+const getAccountsArray = async (): Promise<string[]> => {
+    if (!accounts) {
+        /* Parsing response */
+        const resData: GetAllAccountsResponse = await makeApiRequest('https://customerservice2api.southerncompany.com/api/account/getAllAccounts');
 
-    /* Returning accounts array */
-    return accounts;
+        /* Parsing accounts from response */
+        let accountsResponse: Account[] = resData.Data.map((account) => ({
+            name: account.Description,
+            primary: account.PrimaryAccount,
+            number: account.AccountNumber,
+            company: Company[account.Company]
+        }));
+
+        accounts = accountsResponse.map((acc) => acc.number.toString());
+    }
+    return accounts
 }
 
-const getAccounts = async () => {
-    /* Checking to make sure we have a JWT to use */
-
-
-    /* Parsing response */
-    const resData: GetAllAccountsResponse = await makeApiRequest('https://customerservice2api.southerncompany.com/api/account/getAllAccounts');
-
-    /* Parsing accounts from response */
-    let accounts: Account[] = resData.Data.map((account) => ({
-        name: account.Description,
-        primary: account.PrimaryAccount,
-        number: account.AccountNumber,
-        company: Company[account.Company]
-    }));
-
-    /* Filtering accounts if needed */
-    if (config.account || config.accounts) {
-        /* Creating accounts array to compare against */
-        const accountsFilter = config.accounts ?? [];
-        if (config.account) {
-            /* If only one account then place it in the array */
-            accountsFilter.push(config.account);
-        }
-
-        /* Filtering accounts */
-        accounts = accounts.filter((account) => accountsFilter.includes(account.number.toString()));
-    }
-
-    /* Returning accounts */
-    return accounts;
-}
 
 const makeApiRequest = async (url: string) => {
     const response = await fetch(url, {
@@ -243,7 +206,6 @@ const fetchJwt = async (ScWebToken: string) => {
 }
 
 export {
-    login,
     getJwt,
     makeApiRequest,
     getAccountsArray

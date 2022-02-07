@@ -24,7 +24,7 @@ import {
 	GetAllBillsResponse
 } from './interfaces/responses';
 import {API} from './interfaces/API';
-import {getAccountsArray, getJwt, login, makeApiRequest} from './helper'
+import {getAccountsArray, getJwt, makeApiRequest} from './helper'
 
 /* Interfaces */
 export interface SouthernCompanyConfig {
@@ -62,7 +62,7 @@ export class SouthernCompanyAPI extends EventEmitter {
 		}
 
 		/* Calulating which accounts to fetch data from */
-		let accounts = getAccountsArray();
+		let accounts = await getAccountsArray();
 
 		/* Formatting dates for API */
 		let correctedStartDate = subDays(startDate, 1);
@@ -187,7 +187,7 @@ export class SouthernCompanyAPI extends EventEmitter {
 
 	public async getMonthlyData() {
 		/* Calulating which accounts to fetch data from */
-		let accounts = getAccountsArray();
+		let accounts = await getAccountsArray();
 
 		/* Creating a request for each account */
 		const requests = accounts.map((account) => {
@@ -254,8 +254,8 @@ export class SouthernCompanyAPI extends EventEmitter {
 		return monthlyData;
 	}
 
-	public async getHourlyData(startDate: Date, endDate: Date) {
-		let accounts = getAccountsArray();
+	public async getHourlyData(startDate: Date, endDate: Date): Promise<AccountHourlyData[]> {
+		let accounts = await getAccountsArray();
 
 		const hourlyDataReponse = await Promise.all(accounts.map(account => this.buildHourlyDataResponse(account, startDate, endDate)))
 
