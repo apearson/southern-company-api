@@ -81,7 +81,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 		return accounts;
 	}
 	private static formatDateTime(date){
-		return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} 12:00:00 AM`;
+		return format(date, "MM/dd/yyyy pp")
 	}
 
 	private static formatDate(date){
