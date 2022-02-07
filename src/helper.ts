@@ -11,16 +11,21 @@ const config: SouthernCompanyConfig = {
 
 let jwt
 
+const getJwt = async () =>  {
+    if (!jwt) {
+        /* Request Verification Token */
+        const loginToken = await getRequestVerificationToken();
+
+        /* ScWebToken */
+        const ScWebToken = await getScWebToken(loginToken, config.username, config.password);
+
+        /* Saving JWT */
+        jwt = await fetchJwt(ScWebToken);
+    }
+    return jwt
+}
+
 const login = async () => {
-    /* Request Verification Token */
-    const loginToken = await getRequestVerificationToken();
-
-    /* ScWebToken */
-    const ScWebToken = await getScWebToken(loginToken, config.username, config.password);
-
-    /* Saving JWT */
-    jwt = await getJwt(ScWebToken);
-
     /* Getting accounts if none are supplied */
     if (config.account == undefined && config.accounts == undefined) {
         const accounts = await getAccounts();
@@ -48,9 +53,7 @@ const getAccountsArray = (): string[] => {
 
 const getAccounts = async () => {
     /* Checking to make sure we have a JWT to use */
-    if (!jwt) {
-        await login()
-    }
+
 
     /* Parsing response */
     const resData: GetAllAccountsResponse = await makeApiRequest('https://customerservice2api.southerncompany.com/api/account/getAllAccounts');
@@ -81,15 +84,11 @@ const getAccounts = async () => {
 }
 
 const makeApiRequest = async (url: string) => {
-    if (!jwt) {
-        await login()
-    }
-
     const response = await fetch(url, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json; charset=UTF-8',
-            Authorization: `bearer ${jwt}`
+            Authorization: `bearer ${await getJwt()}`
         }
     });
     if (response.status !== 200) {
@@ -174,7 +173,7 @@ const getScWebToken = async (requestVerificationToken: string, username: string,
 
 }
 
-const getJwt = async (ScWebToken: string) => {
+const fetchJwt = async (ScWebToken: string) => {
     /* Trading ScWebToken for Jwt */
     const swtoptions = {
         method: 'POST',
@@ -245,6 +244,7 @@ const getJwt = async (ScWebToken: string) => {
 
 export {
     login,
+    getJwt,
     makeApiRequest,
     getAccountsArray
 }

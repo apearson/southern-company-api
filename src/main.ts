@@ -24,7 +24,7 @@ import {
 	GetAllBillsResponse
 } from './interfaces/responses';
 import {API} from './interfaces/API';
-import {getAccountsArray, login, makeApiRequest} from './helper'
+import {getAccountsArray, getJwt, login, makeApiRequest} from './helper'
 
 /* Interfaces */
 export interface SouthernCompanyConfig {
@@ -56,11 +56,6 @@ export class SouthernCompanyAPI extends EventEmitter {
 
 	/* Data methods */
 	public async getDailyData(startDate: Date, endDate: Date) {
-		/* Checking to make sure we have a JWT to use */
-		if (!this.jwt) {
-			throw new Error('Could not get daily data: Not Logged In');
-		}
-
 		/* Sanity checking arguments */
 		if (endDate < startDate) {
 			throw new Error('Invalid Dates');
@@ -72,6 +67,8 @@ export class SouthernCompanyAPI extends EventEmitter {
 		/* Formatting dates for API */
 		let correctedStartDate = subDays(startDate, 1);
 
+		const jwt = await getJwt();
+
 		/* Requests */
 		const requests = accounts.map((account) => {
 			/* Usage Request */
@@ -79,7 +76,7 @@ export class SouthernCompanyAPI extends EventEmitter {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json; charset=UTF-8',
-					Authorization: `bearer ${this.jwt}`,
+					Authorization: `bearer ${jwt}`,
 				},
 				body: JSON.stringify({
 					accountNumber: account,
@@ -96,7 +93,7 @@ export class SouthernCompanyAPI extends EventEmitter {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json; charset=UTF-8',
-					Authorization: `bearer ${this.jwt}`,
+					Authorization: `bearer ${jwt}`,
 				},
 				body: JSON.stringify({
 					accountNumber: account,
