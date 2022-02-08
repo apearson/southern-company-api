@@ -12,7 +12,7 @@ module.exports = {
   setupFiles: [
     'dotenv/config',
   ],
-  collectCoverage: true,
+  collectCoverage: false,
   coverageDirectory: 'coverage',
   preset: 'ts-jest',
   testMatch: null,

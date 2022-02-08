@@ -1,11 +1,21 @@
 /* Libraries */
 import {EventEmitter} from 'events';
 import fetch from 'node-fetch';
-import {differenceInCalendarDays, subDays, addDays} from 'date-fns';
+import {differenceInCalendarDays, subDays, addDays, format} from 'date-fns';
 import {stringify} from 'querystring';
-
+import {URL, URLSearchParams} from 'url';
 /* Interfaces */
-import {Company, DailyData, AccountMonthlyData, MonthlyData, Account, UsageData, AllBills} from './interfaces/general';
+import {
+	Company,
+	DailyData,
+	AccountMonthlyData,
+	MonthlyData,
+	Account,
+	UsageData,
+	AllBills,
+	HourlyData,
+	AccountHourlyData
+} from './interfaces/general';
 import {GetAllAccountsResponse, LoginResponse, MonthlyDataResponse, DailyDataResponse, GetAllBillsResponse} from './interfaces/responses';
 import {API} from './interfaces/API';
 
@@ -57,7 +67,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 	}
 
 	/* Utility Methods */
-	private getAccountsArray(){
+	private getAccountsArray(): string[]{
 		/* Calulating which accounts to fetch data from */
 		let accounts: string[] = [];
 		if(this.config.accounts){
@@ -70,8 +80,12 @@ export class SouthernCompanyAPI extends EventEmitter{
 		/* Returning accounts array */
 		return accounts;
 	}
-	private static formatDate(date){
+	private static formatDateTime(date){
 		return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} 12:00:00 AM`;
+	}
+
+	private static formatDate(date){
+		return format(date, "MM/dd/yyyy")
 	}
 	private dataSort(a, b){
 		if(a[0] > b[0]) return 1;
@@ -297,8 +311,8 @@ export class SouthernCompanyAPI extends EventEmitter{
 				},
 				body: JSON.stringify({
 					accountNumber: account,
-					StartDate: SouthernCompanyAPI.formatDate(correctedStartDate),
-					EndDate: SouthernCompanyAPI.formatDate(endDate),
+					StartDate: SouthernCompanyAPI.formatDateTime(correctedStartDate),
+					EndDate: SouthernCompanyAPI.formatDateTime(endDate),
 					DataType: 'Usage',
 					OPCO: 'APC',
 					intervalBehavior: 'Automatic'
@@ -314,8 +328,8 @@ export class SouthernCompanyAPI extends EventEmitter{
 				},
 				body: JSON.stringify({
 					accountNumber: account,
-					StartDate: SouthernCompanyAPI.formatDate(correctedStartDate),
-					EndDate: SouthernCompanyAPI.formatDate(endDate),
+					StartDate: SouthernCompanyAPI.formatDateTime(correctedStartDate),
+					EndDate: SouthernCompanyAPI.formatDateTime(endDate),
 					DataType: 'Cost',
 					OPCO: 'APC',
 					intervalBehavior: 'Automatic'
@@ -484,6 +498,72 @@ export class SouthernCompanyAPI extends EventEmitter{
 		return monthlyData;
 	}
 
+	public async getHourlyData(startDate: Date, endDate: Date){
+		let accounts = this.getAccountsArray();
+
+		const hourlyDataReponse = await Promise.all(accounts.map(account => this.buildHourlyDataResponse(account, startDate, endDate)))
+
+		return hourlyDataReponse
+	}
+
+	private async buildHourlyDataResponse(account: string, startDate: Date, endDate: Date) {
+		const servicePointNumber = await this.fetchServicePointNumber(account)
+		const url = this.buildHourlyURL(startDate, endDate, account, servicePointNumber);
+
+		const response = await fetch(url, {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json; charset=UTF-8',
+				Authorization: `bearer ${this.jwt}`
+			}
+		});
+
+		if (response.status !== 200) {
+			throw new Error(`Failed to get hourly data, response code: ${response.status}, ${response.statusText}. For endpoint: ${url}`);
+		}
+
+		const jsonResponse: API.hourlyMPUData = await response.json();
+
+		const graphData: API.hourlyMPUGraphData = JSON.parse(jsonResponse.Data.Data)
+
+		let combinedGraphData
+
+		if (graphData) {
+			const {cost: {data: costData}, usage: {data: usageData}, temp: {data: tempData}} = graphData.series
+
+			combinedGraphData = costData.reduce((acc, curr, index, array) => {
+				acc.push({
+					date: new Date(curr.name),
+					cost: curr.y,
+					kWh: usageData[index].y,
+					tempF: tempData[index].y
+				})
+				return acc
+			}, new Array())
+		}
+
+		const hourlyDataReponse: AccountHourlyData = {
+			accountNumber: account,
+			data: combinedGraphData
+		}
+		return hourlyDataReponse;
+	}
+
+	public buildHourlyURL(startDate: Date, endDate: Date, accountNumber: string, servicePointNumber: string) {
+
+		const url = new URL(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${accountNumber}/Hourly`)
+
+		url.search = new URLSearchParams({
+			StartDate: SouthernCompanyAPI.formatDate(startDate),
+			EndDate: SouthernCompanyAPI.formatDate(endDate),
+			ServicePointNumber: servicePointNumber,
+			OPCO: 'GPC',
+			intervalBehavior: 'Automatic'
+		}).toString()
+
+		return url;
+	}
+
 	/* Get All Bills methods */
 	public async getAllBillsData(){
 		/* Checking to make sure we have a JWT to use */
@@ -511,4 +591,22 @@ export class SouthernCompanyAPI extends EventEmitter{
 		/* Returning allbills */
 		return allbills;
 	}
+
+    private async fetchServicePointNumber(accountNumber: string): Promise<string> {
+        const options = {
+            headers: {
+                Authorization: `bearer ${this.jwt}`
+            }
+        };
+
+        const response = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/getMPUBasicAccountInformation/${accountNumber}/GPC`, options)
+
+        if (response.status !== 200) {
+            throw new Error(`Failed to fetch service point data, received: ${response.statusText}, for account number:  ${accountNumber}`);
+        }
+
+        const json: API.getMPUBasicAccountInformationResponse = await response.json()
+
+        return json.Data.meterAndServicePoints[0].servicePointNumber
+    }
 }

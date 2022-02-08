@@ -32,6 +32,18 @@ export interface DailyData{
 	}[];
 }
 
+export interface AccountHourlyData {
+    accountNumber: string;
+    data: HourlyData[]
+}
+
+export interface HourlyData {
+    date: Date;
+    kWh: number | null;
+    cost: number | null;
+    tempF: number
+}
+
 export interface AccountMonthlyData{
 	accountNumber: string;
 	data: MonthlyData[];
