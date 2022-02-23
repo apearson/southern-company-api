@@ -28,8 +28,3 @@ jobs:
           password: ${{ secrets.PASSWORD }}
           accounts: ${{ secrets.ACCOUNTS }}
           account: ${{ secrets.ACCOUNT }}
-
-      - name: Coveralls
-        uses: coverallsapp/github-action@v1.1.2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
