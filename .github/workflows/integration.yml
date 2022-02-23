@@ -1,32 +1,35 @@
 name: Integration Tests
 
-
 on:
   push:
     branches:
-    - '*'
+      - "*"
   schedule:
-    - cron: '2 6 * * *'
+    - cron: "2 6 * * *"
 
 jobs:
   integrate_test:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Use Node.js
-      uses: actions/setup-node@v1
-      with:
-        node-version: '14.x'
+      - uses: actions/checkout@v2
+      - name: Use Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: "14.x"
 
-    - name: Install NPM Packages
-      run: npm ci
+      - name: Install NPM Packages
+        run: npm ci
 
-    - name: Run Integration Tests
-      run: npm run test
-      env:
-        username: ${{ secrets.USERNAME }}
-        password: ${{ secrets.PASSWORD }}
-        accounts: ${{ secrets.ACCOUNTS }}
-        account: ${{ secrets.ACCOUNT }}
+      - name: Run Integration Tests
+        run: npm run test
+        env:
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          accounts: ${{ secrets.ACCOUNTS }}
+          account: ${{ secrets.ACCOUNT }}
 
+      - name: Coveralls
+        uses: coverallsapp/github-action@v1.1.2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
