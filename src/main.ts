@@ -178,11 +178,12 @@ export class SouthernCompanyAPI extends EventEmitter{
 			throw new Error(`Failed to get secondary ScWebToken: ${swtresponse.statusText} ${cook} ${JSON.stringify(swtoptions)}`);
 		}
 				/* Regex to parse JWT out of headers */
-		const swtregex = /ScWebToken=(\S*);/i;
+		const swtregex = /SouthernJwtCookie=(\S*);/i;
 
 		/* Parsing response header to get token */
 		let swtoken: string;
 		let swtcookies = swtresponse.headers.get('set-cookie');
+
 		if(swtcookies){
 			const swtmatches = swtcookies.match(swtregex);
 
@@ -200,7 +201,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 		// Now fetch JWT after secondary ScWebToken
 		const options = {
 			headers:{
-				Cookie: `ScWebToken=${swtoken}`
+				Cookie: `SouthernJwtCookie=${swtoken}`
 			}
 		};
 		const response = await fetch('https://customerservice2.southerncompany.com/Account/LoginValidated/JwtToken', options);
@@ -215,6 +216,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 		/* Parsing response header to get token */
 		let token: string;
 		let cookies = response.headers.get('set-cookie');
+
 		if(cookies){
 			const matches = cookies.match(regex);
 
