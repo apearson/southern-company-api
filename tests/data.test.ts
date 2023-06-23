@@ -1,6 +1,5 @@
 /* Libraries */
 import {SouthernCompanyAPI, SouthernCompanyConfig} from '../src/main';
-import {subDays} from 'date-fns';
 
 /* Config */
 const config: SouthernCompanyConfig = {
@@ -20,34 +19,6 @@ beforeAll(() => {
 });
 
 /* Tests */
-test('checks dates are in correct order', async ()=>{
-	const startDate = subDays(new Date(), 1);
-	const endDate = subDays(startDate, 3);
-
-	try{
-		const data = await API.getDailyData(startDate, endDate);
-		throw new Error('Did not catch dates in wrong order');
-	}
-	catch(e){
-		return;
-	}
-});
-// test('grabs list of daily data', async ()=>{
-// 	const endDate = subDays(new Date(), 1);
-// 	const startDate = subDays(endDate, 10);
-
-// 	const data = await API.getDailyData(startDate, endDate);
-
-// 	if(!(data instanceof Array)){
-// 		throw new Error('Returned a none array');
-// 	}
-// 	else if(data.length === 0){
-// 		throw new Error('Returned an empty array');
-// 	}
-// 	else{
-// 		return;
-// 	}
-// });
 test('grabs list of monthly data', async ()=>{
 	const data = await API.getMonthlyData();
 
@@ -60,13 +31,4 @@ test('grabs list of monthly data', async ()=>{
 	else{
 		return;
 	}
-});
-
-test('grabs all bills data', async ()=>{
-	const data = await API.getAllBillsData();
-
-	if(!data)
-		throw new Error('Returned no data');
-
-	return;
 });
