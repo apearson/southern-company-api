@@ -33,7 +33,7 @@ export interface DailyData{
 }
 
 export interface AccountHourlyData {
-    accountNumber: string;
+    accountNumber: string | number;
     data: HourlyData[]
 }
 
@@ -45,7 +45,7 @@ export interface HourlyData {
 }
 
 export interface AccountMonthlyData{
-	accountNumber: string;
+	accountNumber: string | number;
 	data: MonthlyData[];
 }
 export interface MonthlyData{
