@@ -1,7 +1,7 @@
 /* Libraries */
 import {EventEmitter} from 'events';
 import fetch from 'node-fetch';
-import {parse} from 'date-fns';
+import {parseISO} from 'date-fns';
 import {stringify} from 'querystring';
 
 /* Interfaces */
@@ -291,45 +291,14 @@ export class SouthernCompanyAPI extends EventEmitter{
 			/* Parsing graph data */
 			const chartData = JSON.parse(response.Data.Data);
 
-			const dates: {label: string, startDate: Date, endDate: Date}[] = [];
-
-			(chartData.xAxis.dates).forEach((d, i: number) => {
-				dates.push({
-					startDate: new Date(d.startDate),
-					endDate: new Date(d.endDate),
-					label: chartData.xAxis.labels[i]
-				})
-			});
-
 			/* Checking to see if there is any optional data */
-			const seriesData = {};
-
-			for(let month of chartData.series.cost.data){
-				if(!seriesData[month.name]){
-					seriesData[month.name] = {};
-				}
-
-				seriesData[month.name].cost = month.y;
-			}
-
-			for(let month of chartData.series.usage.data){
-				if(!seriesData[month.name]){
-					seriesData[month.name] = {};
-				}
-
-				seriesData[month.name].kWh = month.y;
-			}
-
-			let monthlyData = Object.keys(seriesData).map(key => {
-				let dates = key.split(' - ');
-
-				return {
-					startDate: parse(dates[0], 'M/d', new Date()),
-					endDate: parse(dates[1], 'M/d', new Date()),
-					kWh: seriesData[key].kWh,
-					cost: seriesData[key].cost
-				};
-			});
+			let monthlyData = chartData.series.usage.data
+				.map((d, i) => ({
+					startDate: parseISO(d.startDate),
+					endDate: parseISO(d.endDate),
+					kWh: d.y,
+					cost: chartData.series.cost.data[i].y
+				}));
 
 			return monthlyData;
 		});
