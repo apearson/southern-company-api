@@ -1,7 +1,6 @@
 /* Libraries */
 import fetch from 'node-fetch';
-import {parseISO} from 'date-fns';
-import {stringify} from 'querystring';
+import parseISO from 'date-fns/parseISO';
 
 /* Interfaces */
 import { Company, Account } from './interfaces/general';
@@ -120,8 +119,9 @@ export class SouthernCompanyAPI{
 			headers: {
 				'Content-Type': 'application/x-www-form-urlencoded'
 			},
-			body: stringify({"ScWebToken":ScWebToken})
+			body: `ScWebToken=${ScWebToken}`
 		};
+
 		const swtresponse = await fetch('https://customerservice2.southerncompany.com/Account/LoginComplete?ReturnUrl=null', swtoptions);
 
 		/* Checking for unsuccessful login */
