@@ -1,8 +1,6 @@
 /* Libraries */
-import {EventEmitter} from 'events';
 import fetch from 'node-fetch';
-import {parseISO} from 'date-fns';
-import {stringify} from 'querystring';
+import parseISO from 'date-fns/parseISO';
 
 /* Interfaces */
 import { Company, Account } from './interfaces/general';
@@ -17,52 +15,27 @@ export interface SouthernCompanyConfig{
 	company?: string;
 }
 
-export class SouthernCompanyAPI extends EventEmitter{
-	private config: SouthernCompanyConfig;
+export class SouthernCompanyAPI{
+	private config?: SouthernCompanyConfig;
 	public jwt?: string;
 	private accounts: Account[] = [];
 
-	constructor(config: SouthernCompanyConfig){
-		super();
-
-		/* Saving config */
-		this.config = config;
-
-		/* Connecting to Southern Company API */
-		this.login().then((accounts)=>{
-			/* Emitting connected event */
-			this.emit('connected', accounts);
-		});
-	}
-
-	private async login(){
-		/* Request Verification Token */
-		const loginToken = await this.getRequestVerificationToken();
-
-		/* ScWebToken */
-		const ScWebToken = await this.getScWebToken(loginToken, this.config.username, this.config.password);
-
-		/* Saving JWT */
-		this.jwt = await this.getJwt(ScWebToken);
-
-		/* Getting accounts if none are supplied */
-		this.accounts = await this.getAccounts();
-
-		this.config.accounts = this.accounts.map((account)=> account.number.toString());
-
-		/* Returning */
-		return this.getAccountsArray();
+	constructor(config?: SouthernCompanyConfig){
+		if(config){
+			this.config = config;
+		}
 	}
 
 	/* Utility Methods */
-	private getAccountsArray(): Account[]{
+	private getConfigAccounts(): Account[]{
 		/* Calulating which accounts to fetch data from */
-		let accounts: Account[] = [];
-		if(this.config.accounts){
-			accounts = this.accounts.filter(a => this.config.accounts?.includes(a.number.toString()));
+		let accounts: Account[] = this.accounts;
+
+		if(this.config?.accounts){
+			accounts = this.accounts.filter(a => this.config!.accounts?.includes(a.number.toString()));
 		}
-		else if(this.config.account){
-			accounts = this.accounts.filter(a => this.config.account?.includes(a.number.toString()));
+		else if(this.config?.account){
+			accounts = this.accounts.filter(a => this.config!.account?.includes(a.number.toString()));
 		}
 
 		/* Returning accounts array */
@@ -98,6 +71,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 		/* Returning request verification token */
 		return token;
 	}
+
 	private async getScWebToken(requestVerificationToken: string, username: string, password: string){
 		/* Checking if there is a valid config */
 		if(!this.config)
@@ -137,6 +111,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 		return ScWebToken;
 
 	}
+
 	private async getJwt(ScWebToken: string){
 		/* Trading ScWebToken for Jwt */
 		const swtoptions = {
@@ -144,8 +119,9 @@ export class SouthernCompanyAPI extends EventEmitter{
 			headers: {
 				'Content-Type': 'application/x-www-form-urlencoded'
 			},
-			body: stringify({"ScWebToken":ScWebToken})
+			body: `ScWebToken=${ScWebToken}`
 		};
+
 		const swtresponse = await fetch('https://customerservice2.southerncompany.com/Account/LoginComplete?ReturnUrl=null', swtoptions);
 
 		/* Checking for unsuccessful login */
@@ -213,7 +189,41 @@ export class SouthernCompanyAPI extends EventEmitter{
 	}
 
 	/* Public API methods */
-	public async getAccounts(){
+	public async login(config?: SouthernCompanyConfig){
+
+		// Save config if one is passed in
+		if(config){
+			this.config = config;
+		}
+
+		// Checking if we have a config to log in with
+		if(!this.config){
+			throw new Error('Could not login: No config avaliable');
+		}
+
+		/* Request Verification Token */
+		const loginToken = await this.getRequestVerificationToken();
+
+		/* ScWebToken */
+		const ScWebToken = await this.getScWebToken(loginToken, this.config.username, this.config.password);
+
+		/* Saving JWT */
+		this.jwt = await this.getJwt(ScWebToken);
+
+		/* Getting accounts if none are supplied */
+		this.accounts = await this.getAccounts();
+
+		/* Returning */
+		return this.getConfigAccounts();
+	}
+
+	public async getAccounts(jwt?: string){
+
+		// If no jwt is passed in, login
+		if(!jwt && !this.jwt){
+			await this.login(this.config)
+		}
+
 		/* Checking to make sure we have a JWT to use */
 		if(!this.jwt){
 			throw new Error('Could not get accounts: Not Logged In');
@@ -244,7 +254,7 @@ export class SouthernCompanyAPI extends EventEmitter{
 		}));
 
 		/* Filtering accounts if needed */
-		if(this.config.account || this.config.accounts){
+		if(this.config?.account || this.config?.accounts){
 			/* Creating accounts array to compare against */
 			const accountsFilter = this.config.accounts ?? [];
 			if(this.config.account){
@@ -261,14 +271,20 @@ export class SouthernCompanyAPI extends EventEmitter{
 	}
 
 	/* Data methods */
-	public async getMonthlyData(){
+	public async getMonthlyData(jwt?: string){
+
+		// If no jwt is passed in, login
+		if(!jwt){
+			await this.login(this.config)
+		}
+
 		/* Checking to make sure we have a JWT to use */
 		if(!this.jwt){
 			throw new Error('Could not get monthly data: Not Logged In');
 		}
 
 		/* Calulating which accounts to fetch data from */
-		let accounts = this.getAccountsArray();
+		let accounts = this.getConfigAccounts();
 
 		/* Creating a request for each account */
 		const requests = accounts.map((account)=>{

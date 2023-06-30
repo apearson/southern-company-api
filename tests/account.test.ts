@@ -12,10 +12,7 @@ let API: SouthernCompanyAPI;
 
 /* Setting up API */
 beforeAll(() => {
-	return new Promise((resolve, reject)=> {
-		API = new SouthernCompanyAPI(config);
-		API.on('connected', resolve);
-	});
+	API = new SouthernCompanyAPI(config);
 });
 
 /* Tests */
