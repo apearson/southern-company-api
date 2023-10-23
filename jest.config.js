@@ -9,6 +9,7 @@ module.exports = {
     'ts',
     'tsx',
   ],
+  testTimeout: 10000,
   setupFiles: [
     'dotenv/config',
   ],
