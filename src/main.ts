@@ -95,7 +95,7 @@ export class SouthernCompanyAPI{
 			throw new Error(`Failed to get ScWebToken: ${response.statusText} ${await response.text()} ${JSON.stringify(options)}`);
 
 		/* Parsing response as JSON to match search response for token */
-		const resData: LoginResponse = await response.json();
+		const resData = await response.json() as LoginResponse;
 
 		/* Regex to match token in response */
 		const matchRegex = /NAME='ScWebToken' value='(\S+\.\S+\.\S+)'/mi;
@@ -243,7 +243,7 @@ export class SouthernCompanyAPI{
 		}
 
 		/* Parsing response */
-		const resData: GetAllAccountsResponse = await response.json();
+		const resData: GetAllAccountsResponse = await response.json() as GetAllAccountsResponse;
 
 		/* Parsing accounts from response */
 		let accounts: Account[] = resData.Data.map((account)=>({
@@ -300,7 +300,7 @@ export class SouthernCompanyAPI{
 		const responses = await Promise.all(requests);
 
 		/* Converting all responses to json */
-		const resData: MonthlyDataResponse[] = await Promise.all(responses.map((response)=> response.json()));
+		const resData = await Promise.all(responses.map((response)=> response.json())) as MonthlyDataResponse[];
 
 		/* Grabbing data from all responses */
 		const monthlyData = resData.map((response, index)=> {
