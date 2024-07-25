@@ -1,5 +1,5 @@
 /* Libraries */
-import fetch from 'node-fetch';
+import fetch, { RequestRedirect } from 'node-fetch';
 import parseISO from 'date-fns/parseISO';
 
 /* Interfaces */
@@ -119,13 +119,14 @@ export class SouthernCompanyAPI{
 			headers: {
 				'Content-Type': 'application/x-www-form-urlencoded'
 			},
-			body: `ScWebToken=${ScWebToken}`
+			body: `ScWebToken=${ScWebToken}`,
+			redirect: "manual" as RequestRedirect
 		};
 
-		const swtresponse = await fetch('https://customerservice2.southerncompany.com/Account/LoginComplete?ReturnUrl=null', swtoptions);
+		const swtresponse = await fetch('https://customerservice2.southerncompany.com/Account/LoginComplete?ReturnUrl=/Billing/Home', swtoptions);
 
 		/* Checking for unsuccessful login */
-		if(swtresponse.status !== 200){
+		if(swtresponse.status !== 302){
 			const cook = swtresponse.headers.get('set-cookie');
 			throw new Error(`Failed to get secondary ScWebToken: ${swtresponse.statusText} ${cook} ${JSON.stringify(swtoptions)}`);
 		}
