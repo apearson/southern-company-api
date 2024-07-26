@@ -304,7 +304,9 @@ export class SouthernCompanyAPI{
 		const resData = await Promise.all(responses.map((response)=> response.json())) as MonthlyDataResponse[];
 
 		/* Grabbing data from all responses */
-		const monthlyData = resData.map((response, index)=> {
+		const monthlyData = resData.filter(response => {
+			return JSON.parse(response.Data.Data) !== null;
+		}).map((response, index)=> {
 			/* Parsing graph data */
 			const chartData = JSON.parse(response.Data.Data);
 
