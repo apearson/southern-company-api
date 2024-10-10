@@ -1,6 +1,6 @@
 /* Libraries */
 import fetch, { RequestRedirect } from 'node-fetch';
-import parseISO from 'date-fns/parseISO';
+import { parseISO } from "date-fns";
 
 /* Interfaces */
 import { Company, Account } from './interfaces/general';
