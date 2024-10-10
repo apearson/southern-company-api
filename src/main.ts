@@ -1,5 +1,5 @@
 /* Libraries */
-import fetch from 'node-fetch';
+import fetch, { RequestRedirect } from 'node-fetch';
 import parseISO from 'date-fns/parseISO';
 
 /* Interfaces */
@@ -43,9 +43,19 @@ export class SouthernCompanyAPI{
 	}
 
 	/* API methods */
-	private async getRequestVerificationToken(){
+	private async getRequestVerificationToken(username: string, password: string){
 		/* Grabbing login page */
-		const response = await fetch('https://webauth.southernco.com/account/login');
+		const response = await fetch('https://webauth.southernco.com/webservices/api/WebUser/Login', {
+			method: 'POST',
+			headers: {
+				"referer": "https://webauth.southernco.com/SPA/OCC/login",
+				"content-type": "application/json"
+			},
+			body: JSON.stringify({
+				"username": username,
+				"password": password
+			})
+		});
 
 		/* Checking for unsuccessful login */
 		if(response.status !== 200){
@@ -53,26 +63,12 @@ export class SouthernCompanyAPI{
 		}
 
 		/* Converting login page response to text to search for token */
-		const loginPage = await response.text();
+		const res = await response.json();
 
-		/* Regex to match token on page */
-		const regex = /data-aft="(\S+)"/i;
-
-		/* Matching page and finding token */
-		let token: string;
-		const matches = loginPage.match(regex);
-		if(matches && matches.length > 1){
-			token = matches[1];
-		}
-		else{
-			throw new Error(`Could not find request verification token on login page`);
-		}
-
-		/* Returning request verification token */
-		return token;
+		return  res.data.token;
 	}
 
-	private async getScWebToken(requestVerificationToken: string, username: string, password: string){
+	private async getScWebToken(requestVerificationToken: string){
 		/* Checking if there is a valid config */
 		if(!this.config)
 			throw new Error(`Failed to get ScWebToken: Need a valid config`);
@@ -81,27 +77,29 @@ export class SouthernCompanyAPI{
 		const options = {
 			method: 'POST',
 			headers: {
-				'Content-Type': 'application/json; charset=utf-8',
-				'RequestVerificationToken': requestVerificationToken,
+				'content-type': 'application/x-www-form-urlencoded',
+				'Referer': 'https://webauth.southernco.com/SPA/OCC/login',
 			},
-			body: JSON.stringify({
-				username, password, targetPage: 1, params: {ReturnUrl: "null"}} )
+			body: new URLSearchParams({
+				Token: requestVerificationToken,
+				ReturnUrl: 'none'
+			})
 		};
 
-		const response = await fetch('https://webauth.southernco.com/api/login', options);
+		const response = await fetch('https://webauth.southernco.com/SPA/Navigation', options);
 
 		/* Checking for unsuccessful login */
-		if(response.status !== 200)
+		if(response.status !== 200){
 			throw new Error(`Failed to get ScWebToken: ${response.statusText} ${await response.text()} ${JSON.stringify(options)}`);
+		}
 
-		/* Parsing response as JSON to match search response for token */
-		const resData = await response.json() as LoginResponse;
+		const res = await response.text();
 
 		/* Regex to match token in response */
-		const matchRegex = /NAME='ScWebToken' value='(\S+\.\S+\.\S+)'/mi;
+		const matchRegex = /name="ScWebToken" value="(\S+\.\S+\.\S+)"/mi;
 
 		/* Matching response's form to get ScWebToken */
-		const data = matchRegex.exec(resData.data.html);
+		const data = matchRegex.exec(res);
 		const ScWebToken =  data != null ? data[1] : null;
 
 		if(ScWebToken == undefined)
@@ -109,7 +107,6 @@ export class SouthernCompanyAPI{
 
 			/* Returning ScWebToken */
 		return ScWebToken;
-
 	}
 
 	private async getJwt(ScWebToken: string){
@@ -117,15 +114,19 @@ export class SouthernCompanyAPI{
 		const swtoptions = {
 			method: 'POST',
 			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded'
+				'content-type': 'application/x-www-form-urlencoded',
+				'Referer': 'https://webauth.southernco.com/'
 			},
-			body: `ScWebToken=${ScWebToken}`
+			body: new URLSearchParams({
+				ScWebToken: ScWebToken,
+			}),
+			redirect: "manual" as RequestRedirect
 		};
 
-		const swtresponse = await fetch('https://customerservice2.southerncompany.com/Account/LoginComplete?ReturnUrl=null', swtoptions);
+		const swtresponse = await fetch('https://customerservice2.southerncompany.com/Account/LoginComplete?ReturnUrl=/Billing/Home', swtoptions);
 
 		/* Checking for unsuccessful login */
-		if(swtresponse.status !== 200){
+		if(swtresponse.status !== 302){
 			const cook = swtresponse.headers.get('set-cookie');
 			throw new Error(`Failed to get secondary ScWebToken: ${swtresponse.statusText} ${cook} ${JSON.stringify(swtoptions)}`);
 		}
@@ -202,10 +203,10 @@ export class SouthernCompanyAPI{
 		}
 
 		/* Request Verification Token */
-		const loginToken = await this.getRequestVerificationToken();
+		const loginToken = await this.getRequestVerificationToken(this.config.username, this.config.password);
 
 		/* ScWebToken */
-		const ScWebToken = await this.getScWebToken(loginToken, this.config.username, this.config.password);
+		const ScWebToken = await this.getScWebToken(loginToken);
 
 		/* Saving JWT */
 		this.jwt = await this.getJwt(ScWebToken);
@@ -303,7 +304,9 @@ export class SouthernCompanyAPI{
 		const resData = await Promise.all(responses.map((response)=> response.json())) as MonthlyDataResponse[];
 
 		/* Grabbing data from all responses */
-		const monthlyData = resData.map((response, index)=> {
+		const monthlyData = resData.filter(response => {
+			return JSON.parse(response.Data.Data) !== null;
+		}).map((response, index)=> {
 			/* Parsing graph data */
 			const chartData = JSON.parse(response.Data.Data);
 
