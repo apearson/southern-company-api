@@ -151,12 +151,14 @@ export class SouthernCompanyAPI{
 		else{
 			throw new Error(`Failed to get secondary ScWebToken: No Cookies were sent back`);
 		}
+
 		// Now fetch JWT after secondary ScWebToken
 		const options = {
 			headers:{
 				Cookie: `SouthernJwtCookie=${swtoken}`
 			}
 		};
+
 		const response = await fetch('https://customerservice2.southerncompany.com/Account/LoginValidated/JwtToken', options);
 
 		if(response.status !== 200){
