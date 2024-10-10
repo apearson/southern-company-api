@@ -1,6 +1,5 @@
 # Southern Company API
 [![Github Actions](https://github.com/apearson/southern-company-api/actions/workflows/integration.yml/badge.svg)](https://github.com/apearson/southern-company-api/actions/workflows/integration.yml)
-[![Coveralls](https://img.shields.io/coveralls/apearson/southern-company-api.svg)](https://coveralls.io/github/apearson/southern-company-api)
 [![npm](https://img.shields.io/npm/dt/southern-company-api.svg)](https://www.npmjs.com/package/southern-company-api)
 [![license](https://img.shields.io/npm/l/southern-company-api.svg)](https://github.com/apearson/southern-company-api/blob/master/LICENSE.md)
 
