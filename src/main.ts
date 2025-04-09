@@ -1,10 +1,10 @@
 /* Libraries */
 import fetch, { RequestRedirect } from 'node-fetch';
-import { parseISO } from "date-fns";
+import { parseISO, format } from "date-fns";
 
 /* Interfaces */
 import { Company, Account } from './interfaces/general';
-import {GetAllAccountsResponse, LoginResponse, MonthlyDataResponse} from './interfaces/responses';
+import {GetAllAccountsResponse, GetServicePointNumbersResponse, LoginResponse, MonthlyDataResponse} from './interfaces/responses';
 
 /* Interfaces */
 export interface SouthernCompanyConfig{
@@ -41,6 +41,8 @@ export class SouthernCompanyAPI{
 		/* Returning accounts array */
 		return accounts;
 	}
+
+
 
 	/* API methods */
 	private async getRequestVerificationToken(username: string, password: string){
@@ -191,6 +193,36 @@ export class SouthernCompanyAPI{
 		return token;
 	}
 
+	private async getServicePointNumbers(account: Account, jwt?: string) {
+		// If no jwt is passed in, login
+		if(!jwt && !this.jwt){
+			await this.login(this.config)
+		}
+
+		/* Checking to make sure we have a JWT to use */
+		if(!this.jwt){
+			throw new Error('Could not get accounts: Not Logged In');
+		}
+
+		/* Grabbing accounts from API */
+		const options = {
+			headers: {
+				Authorization: `Bearer ${this.jwt}`
+			}
+		};
+
+		const response = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/getMPUBasicAccountInformation/${account.number}/${account.company}`, options);
+
+		/* Checking for unsuccessful service points request */
+		if(response.status !== 200){
+			throw new Error(`Failed to get service points: ${response.statusText} ${await response.text()}`);
+		}
+
+		const res = await response.json() as GetServicePointNumbersResponse;
+
+		return  res.Data.meterAndServicePoints;
+	}
+
 	/* Public API methods */
 	public async login(config?: SouthernCompanyConfig){
 
@@ -235,7 +267,7 @@ export class SouthernCompanyAPI{
 		/* Grabbing accounts from API */
 		const options = {
 			headers: {
-				Authorization: `bearer ${this.jwt}`
+				Authorization: `Bearer ${this.jwt}`
 			}
 		};
 		const response = await fetch('https://customerservice2api.southerncompany.com/api/account/getAllAccounts', options);
@@ -253,7 +285,8 @@ export class SouthernCompanyAPI{
 			name: account.Description,
 			primary: account.PrimaryAccount,
 			number: account.AccountNumber,
-			company: Company[account.Company]
+			company: Company[account.Company],
+			servicePoints: []
 		}));
 
 		/* Filtering accounts if needed */
@@ -269,13 +302,23 @@ export class SouthernCompanyAPI{
 			accounts = accounts.filter((account)=> accountsFilter.includes(account.number.toString()));
 		}
 
+		/* Grabbing service point numbers for each account */
+		const requests = accounts.map(async (account)=>{
+			const servicePoints = await this.getServicePointNumbers(account, this.jwt);
+
+			account.servicePoints = servicePoints;
+
+			return account;
+		});
+
+		accounts = await Promise.all(requests);
+
 		/* Returning accounts */
 		return accounts;
 	}
 
 	/* Data methods */
 	public async getMonthlyData(jwt?: string){
-
 		// If no jwt is passed in, login
 		if(!jwt){
 			await this.login(this.config)
@@ -294,7 +337,7 @@ export class SouthernCompanyAPI{
 			return fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${account.number}/Monthly?OPCO=${account.company}`, {
 				method: 'GET',
 				headers: {
-					Authorization: `bearer ${this.jwt}`
+					Authorization: `Bearer ${this.jwt}`
 				}
 			});
 		});
@@ -326,5 +369,42 @@ export class SouthernCompanyAPI{
 
 		/* Returning monthly data */
 		return monthlyData;
+	}
+
+	public async getDailyData(startDate: Date, endDate: Date, servicePointNumber: string, jwt?: string){
+		// If no jwt is passed in, login
+		if(!jwt){
+			await this.login(this.config)
+		}
+
+		/* Checking to make sure we have a JWT to use */
+		if(!this.jwt){
+			throw new Error('Could not get monthly data: Not Logged In');
+		}
+
+		/* Formatting dates to MM/DD/YYYY */
+		const startDateString = format(startDate, 'MM/dd/yyyy');
+		const endDateString = format(endDate, 'MM/dd/yyyy');
+
+		/* Calulating which accounts to fetch data from */
+		let accounts = this.getConfigAccounts();
+
+		/* Creating a request for each account */
+		const requests = accounts.map((account)=>{
+			return fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${account.number}/Daily?OPCO=${account.company}&StartDate=${startDateString}&EndDate=${endDateString}&intervalBehavior=Automatic&ServicePointNumber=${servicePointNumber}`, {
+				method: 'GET',
+				headers: {
+					Authorization: `Bearer ${this.jwt}`
+				}
+			});
+		});
+
+		/* Waiting for all requests */
+		const responses = await Promise.all(requests);
+
+		/* Converting all responses to json */
+		const resData = await Promise.all(responses.map((response)=> response.json()));
+
+		return resData;
 	}
 }

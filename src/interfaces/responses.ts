@@ -80,3 +80,17 @@ export interface DailyDataResponse extends APIResponse{
 export interface GetAllBillsResponse extends APIResponse{
 	Data: API.AllBills[];
 }
+
+export interface GetServicePointNumbersResponse extends APIResponse{
+	Data: {
+		estimatedBillIndicator: boolean;
+    isOnlyEligibleForMonthly: boolean,
+    isSolarActiveAccount: boolean,
+    meterAndServicePoints: ServicePoint[];
+	}
+}
+
+export interface ServicePoint {
+	servicePointNumber: string;
+	meterNumber: string;
+}

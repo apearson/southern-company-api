@@ -18,11 +18,18 @@ export interface UsageData{
 
 /* Method Response Types */
 export interface Account{
-	name: string;
+    name: string;
 	primary: 'Y' | 'N';
 	number: number;
 	company: string;
+	servicePoints: ServicePoint[];
 }
+
+export interface ServicePoint {
+    meterNumber: string;
+    servicePointNumber: string;
+}
+
 export interface DailyData{
 	accountNumber: string;
 	data: {
