@@ -5,9 +5,6 @@
 
 Node.js Library to access utility data from Southern Company power utilities (Alabama Power, Georgia Power, Mississippi Power)
 
-**In search of testers with active accounts not in a time of use plan.**
-No coding required, just need to verify API responses.  Open an issue if you would like to help.
-
 ## Example
 ```typescript
 /* Importing Library */
@@ -22,33 +19,18 @@ const SouthernCompany = new SouthernCompanyAPI({
   accounts: ['123123123']
 });
 
-/* Listening for login success */
-SouthernCompany.on('connected', ()=>{
-  console.info('Connected...');
+const accounts = await API.getAccounts();
+console.log("Accounts", JSON.stringify(accounts));
 
-  async function fetchMonthly() {
-    /* Getting Monthly Data */
-    const monthlyData = await SouthernCompany.getMonthlyData();
+/* Grabbing Monthly Data */
+const data = await API.getMonthlyData();
+console.log("Monthly Data", JSON.stringify(data));
 
-    /* Printing Monthly Data */
-    console.info('Monthly Data', JSON.stringify(monthlyData));
-  }
-  fetchMonthly();
-
-  async function fetchDaily() {
-    /* Getting Daily Data */
-    const startDate = new Date(2020, 2, 1);
-    const endDate = new Date();
-    const dailyData = await SouthernCompany.getDailyData(startDate, endDate);
-
-    /* Printing daily data */
-    console.info('Daily Data', JSON.stringify(dailyData));
-  }
-  fetchDaily();
-});
-
-/* Listening for any errors */
-SouthernCompany.on('error', console.error);
+/* GettiGrabbingng Daily Data */
+const servicePointNumber = accounts[0].servicePoints[0].servicePointNumber;
+const startDate = new Date(2020, 2, 1);
+const endDate = new Date();
+const dailyData = await SouthernCompany.getDailyData(startDate, endDate, servicePointNumber);
 ```
 
 ## API
@@ -63,36 +45,10 @@ const API = new SouthernCompanyAPI({
 });
 ```
 
-### Events
-The instantiated object extends the [EventEmitter](https://nodejs.org/api/events.html) class built into node. To listen for events use the `.on(eventName, listener)` method.
-
-Current Events:
-  * connected (On connection success)
-  * reconnected (On reconnection success)
-  * error (On login failure)
-
-```typescript
-/* Listening for connection success */
-API.on('connected', ()=>{
-  console.info('Connected...');
-});
-
-/* Listening for connection success */
-API.on('reconnected', ()=>{
-  console.info('Reconnected...');
-});
-
-
-/* Listening for any errors */
-API.on('error', (error)=>{
-  console.error('An error occured', error);
-});
-```
-
 ### Data methods
 #### getMonthlyData()
 **Description**
-This method collects all monthly data on all accounts from the time they were opened to the last complete month of data.
+This method collects all monthly data on all accounts from the earliest available to the last complete month of data.
 
 **Arguments**
   * None
@@ -121,12 +77,11 @@ console.info('Monthly Data', JSON.stringify(monthlyData));
 
 /* Result */
 [{
-  "name":"Apartment",
-  "accountNumber":0000000000,
+  "accountNumber": 0000000000,
   "data":[
-    {"date":"2017-03-01T06:00:00.000Z","cost":66.66,"kWh":416,"bill":87},
-    {"date":"2017-04-01T06:00:00.000Z","cost":62.23,"kWh":380,"bill":87},
-    {"date":"2017-05-01T06:00:00.000Z","cost":65.42,"kWh":406,"bill":87}
+    {"startDate": "2024-02-16T00:00:00.000Z", "endDate": "2024-03-19T00:00:00.000Z", "cost":66.66,"kWh":416},
+    {"startDate": "2024-03-19T00:00:00.000Z", "endDate": "2024-04-17T00:00:00.000Z",,"cost":62.23,"kWh":380},
+    {"startDate": "2024-04-17T00:00:00.000Z", "endDate": "2024-05-17T00:00:00.000Z",,"cost":65.42,"kWh":406}
   ]
 }]
 ```
@@ -149,8 +104,8 @@ This method collects daily data from the `startDate` provided to the `endDate` p
       * `accountNumber` Account number
       * `data` Each object of array is a month of data
         * `date` M/D/YYYY of data
-        * `cost` Total energy cost for the date
         * `kWh` Total amount of kWh used during the date
+        * `cost` Total energy cost for the date
 
 **Example**
 ```typescript
@@ -164,7 +119,6 @@ console.info('Daily Data', JSON.stringify(data));
 
 /* Result */
 [{
-  "name":"Apartment",
   "accountNumber": 0000000000,
   "data":[
     {"date":"2017-05-01T06:00:00.000Z", "cost":2.17, "kWh":12.76},

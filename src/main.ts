@@ -331,29 +331,25 @@ export class SouthernCompanyAPI{
 		let accounts = this.getConfigAccounts();
 
 		/* Creating a request for each account */
-		const requests = accounts.map((account)=>{
-			return fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${account.number}/Monthly?OPCO=${account.company}`, {
+		const dataRes = accounts.map(async (account)=>{
+			const response = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${account.number}/Monthly?OPCO=${account.company}`, {
 				method: 'GET',
 				headers: {
 					Authorization: `Bearer ${this.jwt}`
 				}
 			});
-		});
 
-		/* Waiting for all requests */
-		const responses = await Promise.all(requests);
+			/* Checking for unsuccessful monthly data request */
+			if(response.status !== 200){
+				throw new Error(`Failed to get monthly data for account ${account.number}: ${response.statusText} ${await response.text()}`);
+			}
 
-		/* Converting all responses to json */
-		const resData = await Promise.all(responses.map((response)=> response.json())) as MonthlyDataResponse[];
+			/* Parsing response */
+			const resData = await response.json() as MonthlyDataResponse;
 
-		/* Grabbing data from all responses */
-		const monthlyData = resData.filter(response => {
-			return JSON.parse(response.Data.Data) !== null;
-		}).map((response, index)=> {
-			/* Parsing graph data */
-			const chartData = JSON.parse(response.Data.Data);
+			/* Grabbing data from response */
+			const chartData = JSON.parse(resData.Data.Data);
 
-			/* Checking to see if there is any optional data */
 			let monthlyData = chartData.series.usage.data
 				.map((d, i) => ({
 					startDate: parseISO(d.startDate),
@@ -362,11 +358,15 @@ export class SouthernCompanyAPI{
 					cost: chartData.series.cost.data[i].y
 				}));
 
-			return monthlyData;
+			/* Adding account number to data */
+			return {
+				accountNumber: account.number,
+				data: monthlyData
+			}
 		});
 
-		/* Returning monthly data */
-		return monthlyData;
+		/* Waiting for all requests */
+		return await Promise.all(dataRes);
 	}
 
 	public async getDailyData(startDate: Date, endDate: Date, servicePointNumber: string, jwt?: string){
@@ -426,11 +426,18 @@ export class SouthernCompanyAPI{
 
 			return {
 				date: name,
-				usage: y,
+				kWh: y,
 				cost: costEntry?.y || 0
 			};
 		});
 
-		return combinedUsageCost;
+		return {
+			accountNumber: account.number,
+			data: combinedUsageCost.map((d)=>({
+				date: parseISO(d.date),
+				kWh: d.kWh,
+				cost: d.cost
+			}))
+		};
 	}
 }
