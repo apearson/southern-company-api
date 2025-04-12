@@ -15,7 +15,7 @@ export enum AccountType{
 
 /* Method Response Types */
 export interface Account{
-    name: string;
+	name: string;
 	primary: 'Y' | 'N';
 	number: number;
 	company: string;
@@ -28,9 +28,9 @@ export interface AccountDailyData{
 }
 
 export interface DailyData {
-    date: Date;
-    kWh: number | null;
-    cost: number | null;
+	date: Date;
+	kWh: number | null;
+	cost: number | null;
 }
 
 export interface AccountMonthlyData {
