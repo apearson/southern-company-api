@@ -4,7 +4,7 @@ import { parseISO, format } from "date-fns";
 
 /* Interfaces */
 import { Company, Account } from './interfaces/general';
-import {DailyDataResponse, GetAllAccountsResponse, GetDailyGraphData, GetServicePointNumbersResponse, MonthlyDataResponse} from './interfaces/responses';
+import { API } from './interfaces/API';
 
 /* Interfaces */
 export interface SouthernCompanyConfig{
@@ -216,7 +216,7 @@ export class SouthernCompanyAPI{
 			throw new Error(`Failed to get service points: ${response.statusText} ${await response.text()}`);
 		}
 
-		const res = await response.json() as GetServicePointNumbersResponse;
+		const res = await response.json() as API.GetServicePointNumbersResponse;
 
 		return  res.Data.meterAndServicePoints;
 	}
@@ -276,7 +276,7 @@ export class SouthernCompanyAPI{
 		}
 
 		/* Parsing response */
-		const resData: GetAllAccountsResponse = await response.json() as GetAllAccountsResponse;
+		const resData = await response.json() as API.GetAllAccountsResponse;
 
 		/* Parsing accounts from response */
 		let accounts: Account[] = resData.Data.map((account)=>({
@@ -345,7 +345,7 @@ export class SouthernCompanyAPI{
 			}
 
 			/* Parsing response */
-			const resData = await response.json() as MonthlyDataResponse;
+			const resData = await response.json() as API.MonthlyDataResponse;
 
 			/* Grabbing data from response */
 			const chartData = JSON.parse(resData.Data.Data);
@@ -404,9 +404,9 @@ export class SouthernCompanyAPI{
 			}
 		});
 
-		const data = await res.json() as DailyDataResponse;
+		const data = await res.json() as API.DailyDataResponse;
 
-		const graphData = JSON.parse(data.Data.Data) as GetDailyGraphData;
+		const graphData = JSON.parse(data.Data.Data) as API.GetDailyGraphData;
 
 		const combinedCost = [
 			...graphData.series.weekdayCost.data,

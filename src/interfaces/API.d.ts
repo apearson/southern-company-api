@@ -2,6 +2,22 @@
 import {Company, AccountType} from './general';
 
 declare namespace API {
+    export interface LoginResponse {
+        statusCode: number;
+        message: string;
+        isSuccess: boolean;
+        modelErrors: null;
+    }
+
+    export interface Response {
+        StatusCode: number;
+        Message: string;
+        MessageType: number;
+        Data: any;
+        ModelErrors?: string[];
+        IsScApiResult: boolean;
+    }
+
     export interface Account {
         UserSid: string;
         AccountNumber: number;
@@ -19,6 +35,11 @@ declare namespace API {
         LocalAddress: null;
         PremiseNumber: null;
         IsPrePayAccount: boolean;
+    }
+
+    export interface ServicePoint {
+        meterNumber: string;
+        servicePointNumber: string;
     }
 
     export interface AccountDetails {
@@ -416,82 +437,134 @@ declare namespace API {
         IsScApiResult: boolean
     }
 
-    export interface hourlyMPUData {
-        "StatusCode": number,
-        "Message": string,
-        "MessageType": number,
-        "Data": {
-            "contractriderDesc": null,
-            "Data": string,
-            "HighTempIndex": number,
-            "LowTempIndex": number,
-            "TemperatureIndex": number,
-            "NotificationIndex": number,
-            "AboveAlertIndex": number,
-            "DailyAlertIndex": number,
-            "WeekendIndex": number,
-            "ReminderIndex": number,
-            "ProjectedBillAmountHigh": null,
-            "ProjectedBillAmountLow": null,
-            "AverageDailyCost": null,
-            "Days": number,
-            "DollarsToDate": null,
-            "TotalkWhUsed": number,
-            "HasData": true,
-            "HasEstimatedBill": false,
-            "IsPartialMonth": false,
-            "RemainingDays": number,
-            "DaysToDate": number,
-            "AlertThreshold": number,
-            "AlertThresholdExceeded": false,
-            "UsageTable": null
-        },
-        "ModelErrors": [],
-        "IsScApiResult": true
+    export interface GetAllAccountsResponse extends Response{
+        Data: API.Account[];
     }
 
-    export interface hourlyMPUGraphData {
-        "xAxis": {
-            "labels": string[]
-        },
-        "series": {
-            "cost": {
-                "data": [
-                    {
-                        "x": number,
-                        "y": number,
-                        "name": string,
-                        "resolution": string
-                    }
-                ]
-            },
-            "usage": {
-                "data": [
-                    {
-                        "x": number,
-                        "y": number,
-                        "name": string,
-                        "resolution": string
-                    }
-                ]
-            },
-            "costDelayed": {
-                "data": []
-            },
-            "usageDelayed": {
-                "data": []
-            },
-            "temp": {
-                "data": [
-                    {
-                        "x": number,
-                        "y":  number,
-                        "name": string,
-                        "resolution": string
-                    }
-                ]
-            }
+    export interface MonthlyDataResponse extends Response{
+        Data: {
+            Data: string;
+            HighTempIndex: number;
+            LowTempIndex: number;
+            TemperatureIndex: number;
+            NotificationIndex: number;
+            AboveAlertIndex: number;
+            DailyAlertIndex: number;
+            WeekendIndex: number;
+            ReminderIndex: number;
+            ProjectedBillAmountHigh: null;
+            ProjectedBillAmountLow: null;
+            AverageDailyCost: null;
+            Days: number;
+            DollarsToDate: null;
+            TotalkWhUsed: number;
+            HasData:boolean;
+            HasEstimatedBill: boolean;
+            IsPartialMonth: boolean;
+            RemainingDays: number;
+            DaysToDate: number;
         }
     }
 
+    export interface DailyDataResponse extends Response{
+        Data: API.MyPowerUsageResponse
+    }
+
+    export interface GetServicePointNumbersResponse extends Response{
+        Data: {
+            estimatedBillIndicator: boolean;
+        isOnlyEligibleForMonthly: boolean,
+        isSolarActiveAccount: boolean,
+        meterAndServicePoints: ServicePoint[];
+        }
+    }
+
+    export interface GetDailyGraphData {
+      xAxis: {
+        labels: string[];
+      };
+      series: {
+        costDelayed: {
+          data: any[];
+        };
+        usageDelayed: {
+          data: any[];
+        };
+        weekdayCost: {
+          data: {
+            x: number;
+            y: number;
+            name: string;
+            resolution: string;
+          }[];
+        };
+        weekdayUsage: {
+          data: {
+            x: number;
+            y: number;
+            name: string;
+            resolution: string;
+          }[];
+        };
+        weekendCost: {
+          data: {
+            x: number;
+            y: number;
+            name: string;
+            resolution: string;
+          }[];
+        };
+        weekendUsage: {
+          data: {
+            x: number;
+            y: number;
+            name: string;
+            resolution: string;
+          }[];
+        };
+        overage: {
+          data: any[];
+        };
+        reminder: {
+          data: any[];
+        };
+        notifications: {
+          data: any[];
+        };
+        highTemp: {
+          data: {
+            x: number;
+            y: number;
+            name: string;
+            resolution: string;
+          }[];
+        };
+        lowTemp: {
+          data: {
+            x: number;
+            y: number;
+            name: string;
+            resolution: string;
+          }[];
+        };
+        avgDailyCost: {
+          data: {
+            x: number;
+            y: number;
+            name: string;
+            resolution: string;
+          }[];
+        };
+        alertCost: {
+          data: any[];
+        };
+        solarGeneration: {
+          data: any[];
+        };
+        solarGenerationDelayed: {
+          data: any[];
+        };
+      };
+      dailyDataSource: string;
+    }
 }
