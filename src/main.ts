@@ -4,7 +4,7 @@ import { parseISO, format } from "date-fns";
 
 /* Interfaces */
 import { Company, Account } from './interfaces/general';
-import {GetAllAccountsResponse, GetServicePointNumbersResponse, LoginResponse, MonthlyDataResponse} from './interfaces/responses';
+import {DailyDataResponse, GetAllAccountsResponse, GetDailyGraphData, GetServicePointNumbersResponse, MonthlyDataResponse} from './interfaces/responses';
 
 /* Interfaces */
 export interface SouthernCompanyConfig{
@@ -41,8 +41,6 @@ export class SouthernCompanyAPI{
 		/* Returning accounts array */
 		return accounts;
 	}
-
-
 
 	/* API methods */
 	private async getRequestVerificationToken(username: string, password: string){
@@ -387,24 +385,52 @@ export class SouthernCompanyAPI{
 		const endDateString = format(endDate, 'MM/dd/yyyy');
 
 		/* Calulating which accounts to fetch data from */
-		let accounts = this.getConfigAccounts();
+		const accounts = this.getConfigAccounts();
 
-		/* Creating a request for each account */
-		const requests = accounts.map((account)=>{
-			return fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${account.number}/Daily?OPCO=${account.company}&StartDate=${startDateString}&EndDate=${endDateString}&intervalBehavior=Automatic&ServicePointNumber=${servicePointNumber}`, {
-				method: 'GET',
-				headers: {
-					Authorization: `Bearer ${this.jwt}`
-				}
-			});
+		/* Figure out which account has the service point number */
+		const account = accounts.find((account)=>{
+			return account.servicePoints.some((servicePoint)=> servicePoint.servicePointNumber === servicePointNumber);
 		});
 
-		/* Waiting for all requests */
-		const responses = await Promise.all(requests);
+		if(!account){
+			throw new Error(`Could not find account with service point number ${servicePointNumber}`);
+		}
 
-		/* Converting all responses to json */
-		const resData = await Promise.all(responses.map((response)=> response.json()));
+		/* Creating a request for each account */
+		const res = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${account.number}/Daily?OPCO=${account.company}&StartDate=${startDateString}&EndDate=${endDateString}&intervalBehavior=Automatic&ServicePointNumber=${servicePointNumber}`, {
+			method: 'GET',
+			headers: {
+				Authorization: `Bearer ${this.jwt}`
+			}
+		});
 
-		return resData;
+		const data = await res.json() as DailyDataResponse;
+
+		const graphData = JSON.parse(data.Data.Data) as GetDailyGraphData;
+
+		const combinedCost = [
+			...graphData.series.weekdayCost.data,
+			...graphData.series.weekendCost.data
+		];
+
+		const combinedUsage = [
+			...graphData.series.weekdayUsage.data,
+			...graphData.series.weekendUsage.data
+		];
+
+		const combinedUsageCost = combinedUsage
+		.sort((a, b) => a.x - b.x)
+		.map(({name, y, x}) => {
+			// Find matching cost entry by x value
+			const costEntry = combinedCost.find(cost => cost.x === x);
+
+			return {
+				date: name,
+				usage: y,
+				cost: costEntry?.y || 0
+			};
+		});
+
+		return combinedUsageCost;
 	}
 }

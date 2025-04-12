@@ -94,3 +94,92 @@ export interface ServicePoint {
 	servicePointNumber: string;
 	meterNumber: string;
 }
+
+export interface GetDailyGraphData {
+  xAxis: {
+    labels: string[];
+  };
+  series: {
+    costDelayed: {
+      data: any[];
+    };
+    usageDelayed: {
+      data: any[];
+    };
+    weekdayCost: {
+      data: {
+        x: number;
+        y: number;
+        name: string;
+        resolution: string;
+      }[];
+    };
+    weekdayUsage: {
+      data: {
+        x: number;
+        y: number;
+        name: string;
+        resolution: string;
+      }[];
+    };
+    weekendCost: {
+      data: {
+        x: number;
+        y: number;
+        name: string;
+        resolution: string;
+      }[];
+    };
+    weekendUsage: {
+      data: {
+        x: number;
+        y: number;
+        name: string;
+        resolution: string;
+      }[];
+    };
+    overage: {
+      data: any[];
+    };
+    reminder: {
+      data: any[];
+    };
+    notifications: {
+      data: any[];
+    };
+    highTemp: {
+      data: {
+        x: number;
+        y: number;
+        name: string;
+        resolution: string;
+      }[];
+    };
+    lowTemp: {
+      data: {
+        x: number;
+        y: number;
+        name: string;
+        resolution: string;
+      }[];
+    };
+    avgDailyCost: {
+      data: {
+        x: number;
+        y: number;
+        name: string;
+        resolution: string;
+      }[];
+    };
+    alertCost: {
+      data: any[];
+    };
+    solarGeneration: {
+      data: any[];
+    };
+    solarGenerationDelayed: {
+      data: any[];
+    };
+  };
+  dailyDataSource: string;
+}

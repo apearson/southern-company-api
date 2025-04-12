@@ -29,3 +29,27 @@ test('grabs list of monthly data', async ()=>{
 		return;
 	}
 });
+
+test('grabs list of daily data', async ()=>{
+	const accounts = await API.getAccounts();
+	const servicePointNumber = accounts[0].servicePoints[0].servicePointNumber;
+
+	const endDate = new Date();
+	endDate.setDate(endDate.getDate() - 1);
+	const startDate = new Date();
+	startDate.setDate(startDate.getDate() - 8);
+	const data = await API.getDailyData(startDate, endDate, servicePointNumber);
+
+	if(!(data instanceof Array)){
+		throw new Error('Returned a none array');
+	}
+	else if(data.length === 0){
+		throw new Error('Returned an empty array');
+	}
+	else if(data.length !== 7){
+		throw new Error('Returned an array of incorrect length');
+	}
+	else{
+		return;
+	}
+});
