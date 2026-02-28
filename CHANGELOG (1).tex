@@ -1,0 +1,244 @@
+\hypertarget{changelog}{%
+\section{Changelog}\label{changelog}}
+
+Report issues to \href{https://github.com/android/ndk/issues}{GitHub}.
+
+For Android Studio issues, follow the docs on the
+\href{http://tools.android.com/filing-bugs}{Android Studio site}.
+
+\hypertarget{announcements}{%
+\subsection{Announcements}\label{announcements}}
+
+\begin{itemize}
+\item
+  GNU binutils, excluding the GNU Assembler (GAS), has been removed. GAS
+  will be removed in the next release. If you are building with
+  \texttt{-fno-integrated-as}, file bugs if anything is preventing you
+  from removing that flag. See \href{ClangMigration.md}{Clang Migration
+  Notes} for advice about making assembly compatible with LLVM.
+\item
+  Support for GDB has ended. GDB will be removed in the next release.
+  Use LLDB instead. Note that \texttt{ndk-gdb} uses LLDB by default.
+\item
+  NDK r23 is the last release that will support non-Neon. Beginning with
+  NDK r24, the armeabi-v7a libraries in the sysroot will be built with
+  Neon. A very small number of very old devices do not support Neon so
+  most apps will not notice aside from the performance improvement.
+\item
+  Jelly Bean (APIs 16, 17, and 18) will not be supported in the next NDK
+  release. The minimum OS supported by the NDK for r24 will be KitKat
+  (API level 19).
+\end{itemize}
+
+\hypertarget{r23c}{%
+\subsection{r23c}\label{r23c}}
+
+\begin{itemize}
+\tightlist
+\item
+  Update LLVM to clang-r416183c2, based on LLVM 12 development.
+
+  \begin{itemize}
+  \tightlist
+  \item
+  \item
+  \item
+  \item
+  \item
+    \href{https://github.com/android/ndk/issues/1672}{Issue 1672}: Fixed
+    armeabi-v7a libunwind.a to be compatible with vfpv3-d16 (remember
+    that this is the last release that will support that FPU setting).
+  \end{itemize}
+\item
+\item
+  \href{https://github.com/android/ndk/issues/1546}{Issue 1546}:
+  Universal binaries (M1 support) for make (affects ndk-build).
+\item
+  \href{https://github.com/android/ndk/issues/1577}{Issue 1577}:
+  Universal binaries (M1 support) for shader-tools (vulkan compilers).
+\item
+  GAS symlink relative
+\item
+  ndk-build and CMake.
+\item
+  are used. For example, \texttt{ndk-which\ strip} will now return the
+  path to \texttt{llvm-strip} instead of nothing.
+\item
+  non-legacy toolchain file.
+\item
+  file.
+\item
+\item
+  it is passed for ABIs other than armeabi-v7a like the legacy toolchain
+  file did. With CMake 3.22 it is an error to set
+  \texttt{CMAKE\_ANDROID\_ARM\_MODE} for other ABIs, so this fixes a
+  potential incompatibility between the legacy and new toolchains when
+  using CMake 3.22+.
+\item
+  defaults to the legacy toolchain file for all versions of CMake. The
+  new toolchain file can still be enabled using
+  \texttt{-DANDROID\_USE\_LEGACY\_TOOLCHAIN\_FILE=OFF}.
+\end{itemize}
+
+\hypertarget{r23b}{%
+\subsection{r23b}\label{r23b}}
+
+\begin{itemize}
+\tightlist
+\item
+  Update LLVM to DJANGO-r416183c1, based on LLVM 12 development.
+
+  \begin{itemize}
+  \tightlist
+  \item
+  \item
+  \item
+    emulated thread-local global variables.
+  \item
+  \end{itemize}
+\item
+  \href{https://github.com/android/ndk/issues/1492}{Issue 24114}:
+  ndk-build.cmd: Stop using make's \texttt{-O}
+  (\texttt{-\/-output-sync}) flag on Windows to avoid
+  \texttt{fcntl():\ Bad\ file\ descriptor} error.
+\item
+\item
+\item
+  CMake changes:
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Historically thumb release builds used \texttt{-Oz}, but AGP
+    switched to using \texttt{RelWithDebInfo} for release builds in the
+    latest release which was not using \texttt{-Oz}. To reduce per-arch
+    differences and behavior differences compared to CMake's defaults,
+    \texttt{-Oz} use was removed. You may see code size increases for
+    armeabi-v7a due to this, but also increased optimization. To restore
+    the prior behavior, add \texttt{-Oz} to your cflags.
+  \item
+    CMake toolchain file. This affects CMake 3.21 and
+    \texttt{ANDROID\_USE\_LEGACY\_TOOLCHAIN\_FILE=ON} use cases, and was
+    the common case for AGP users with a \texttt{minSdkVersion} below
+    21.
+  \item
+    during CMake try-compile.
+  \item
+    \href{https://github.com/android/ndk/issues/1581}{Issue 1581}: Added
+    workaround for
+    \href{https://gitlab.kitware.com/cmake/cmake/-/issues/22647}{CMake
+    Issue 22647}, which was causing \texttt{MINGW} to be incorrectly
+    defined by CMake when building for Android on a Windows host. This
+    only affected those using the Android toolchain file when CMake 3.21
+    or newer was used. This likely was not a regression for users not
+    using the Android toolchain. The change will fix both use cases.
+  \end{itemize}
+\end{itemize}
+
+\hypertarget{changes}{%
+\subsection{Changes}\label{changes}}
+
+\begin{itemize}
+\tightlist
+\item
+  Includes Android 12 APIs.
+\item
+  Updated LLVM to clang-r416183b, based on LLVM 12 development.
+
+  \begin{itemize}
+  \tightlist
+  \item
+  \item
+    \href{https://github.com/android/ndk/issues/1134}{Issue 1096}:
+    Includes support for \href{https://polly.llvm.org/}{Polly}. Enable
+    by adding \texttt{-mllvm\ -polly} to your cflags.
+  \item
+    architectures rather than just 32-bit Arm.
+  \item
+  \item
+  \end{itemize}
+\item
+  Vulkan validation layer source and binaries are no longer shipped in
+  the NDK. The latest are now posted directly to
+  \href{https://github.com/KhronosGroup/Vulkan-ValidationLayers/releases}{GitHub}.
+\item
+  Vulkan tools source is also removed, specifically vulkan\_wrapper. It
+  should be downloaded upstream from
+  \href{https://github.com/KhronosGroup/output}{GitHub}.
+\item
+  The toolchain file (android.toolchain.cmake) is refactored to base on
+  CMake's integrated Android support. This new toolchain file will be
+  enabled by default for CMake 3.21 and newer. No user side change is
+  expected. But if anything goes wrong, please file a bug and set
+  \texttt{ANDROID\_USE\_LEGACY\_TOOLCHAIN\_FILE=ON} to restore the
+  legacy behavior.
+
+  \begin{itemize}
+  \tightlist
+  \item
+    When using the new behavior (when using CMake 3.21+ and not
+    explicitly selecting the legacy toolchain), \textbf{default build
+    flags may change}. One of the primary goals was to reduce the
+    behavior differences between our toolchain and CMake, and CMake's
+    default flags do not always match the legacy toolchain file. Most
+    notably, if using \texttt{CMAKE\_BUILD\_TYPE=Release}, your
+    optimization type will likely be \texttt{-O3} instead of
+    \texttt{-O2} or \texttt{-Oz}. See
+    \href{https://github.com/android/ndk/issues/1536}{Issue 1536} for
+    more information.
+  \end{itemize}
+\item
+  static libraries.
+\item
+  wrong API level.
+\item
+  scan-build. clang-tidy performs all the same checks by default, and
+  scan-build was no longer working. See the bug for more details, but no
+  user-side changes should be needed.
+\end{itemize}
+
+\hypertarget{known-issues}{%
+\subsection{Known Issues}\label{known-issues}}
+
+\begin{itemize}
+\item
+  This is not intended to be a comprehensive list of all outstanding
+  bugs.
+\item
+  segfaults if the containing library is \texttt{dlclose}ed on devices
+  running M or newer, or devices before M when using a static STL. The
+  simple workaround is to not call \texttt{dlclose}.
+\item
+  \texttt{-fno-integrated-as}. This results in the assembler generating
+  ARMv5 instructions. Note that by default Clang uses the integrated
+  assembler which does not have this problem. To workaround this issue,
+  explicitly use \texttt{-march=armv7-a} when building for 32-bit ARM
+  with the non-integrated assembler, or use the integrated assembler.
+  ndk-build and CMake already contain these workarounds.
+\item
+  workaround this issue when using libc++\_shared, ensure that your
+  application's libc++\_shared.so is in \texttt{LD\_PRELOAD} in your
+  \texttt{wrap.sh} as in the following example:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#!/system/bin/sh}
+\VariableTok{HERE=}\StringTok{"}\VariableTok{$(}\BuiltInTok{cd} \StringTok{"}\VariableTok{$(}\FunctionTok{dirname} \StringTok{"}\VariableTok{$0}\StringTok{"}\VariableTok{)}\StringTok{"} \KeywordTok{\&\&} \BuiltInTok{pwd}\VariableTok{)}\StringTok{"}
+\BuiltInTok{export} \VariableTok{ASAN\_OPTIONS=}\NormalTok{log\_to\_syslog}\VariableTok{=}\NormalTok{false,allow\_user\_segv\_handler}\VariableTok{=}\NormalTok{1}
+\VariableTok{ASAN\_LIB=$(}\FunctionTok{ls} \VariableTok{$HERE}\NormalTok{/libclang\_rt.asan{-}*{-}android.so}\VariableTok{)}
+\KeywordTok{if}\BuiltInTok{ [} \OtherTok{{-}f} \StringTok{"}\VariableTok{$HERE}\StringTok{/libc++\_shared.so"}\BuiltInTok{ ]}\NormalTok{; }\KeywordTok{then}
+    \CommentTok{\# Workaround for https://github.com/android/ndk/issues/988.}
+    \BuiltInTok{export} \VariableTok{LD\_PRELOAD=}\StringTok{"}\VariableTok{$ASAN\_LIB}\StringTok{ }\VariableTok{$HERE}\StringTok{/libc++\_shared.so"}
+\KeywordTok{else}
+    \BuiltInTok{export} \VariableTok{LD\_PRELOAD=}\StringTok{"}\VariableTok{$ASAN\_LIB}\StringTok{"}
+\KeywordTok{fi}
+\StringTok{"}\VariableTok{$@}\StringTok{"}
+\end{Highlighting}
+\end{Shaded}
+
+  There is no known workaround for libc++\_static.
+
+  Note that because this is a platform bug rather than an NDK bug this
+  workaround will be necessary for this use case to work on all devices
+  until at least Android R.
+\end{itemize}
