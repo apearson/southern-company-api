@@ -2,6 +2,10 @@
 import fetch, { RequestRedirect } from 'node-fetch';
 import { parseISO } from "date-fns";
 
+/* Nicor Gas (LDC=7) */
+export { NicorAPI, parseAspNetDate } from './nicor';
+export type { NicorConfig, NicorUsageHistoryEntry, NicorDailyUsageEntry, NicorUsageData } from './nicor';
+
 /* Interfaces */
 import { Company, Account } from './interfaces/general';
 import {GetAllAccountsResponse, LoginResponse, MonthlyDataResponse} from './interfaces/responses';

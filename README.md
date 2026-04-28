@@ -174,7 +174,7 @@ console.info('Daily Data', JSON.stringify(data));
 ```
 
 
-## How Authentication Works
+### How Authentication Works
 1. Login Page is loaded
   * `Method` GET
   * `URL` https://webauth.southernco.com/account/login
@@ -201,3 +201,80 @@ console.info('Daily Data', JSON.stringify(data));
 7. Grab the `ScJwtToken` from the response's cookies
   * Cookie's name is ScJwtToken and contains the ScJwtToken
   * This `ScJwtToken` can be used to authenticate all other API requests.
+
+## Nicor Gas (LDC 7)
+
+Nicor Gas uses a **cookie-based session** instead of the JWT flow used by the Southern Company electric utilities. Credentials are submitted directly to the Southern Company customer portal (`customerportal.southerncompany.com`), and all subsequent requests are authenticated via browser-style cookies.
+
+### Login (Nicor)
+```typescript
+import { NicorAPI } from 'southern-company-api';
+
+const API = new NicorAPI({
+  username: 'username',
+  password: 'password'
+});
+
+await API.login();
+```
+
+### getNicorUsageHistory()
+**Description**
+Fetches meter reading history and daily usage data from the Nicor Gas portal for the authenticated account.
+
+**Arguments**
+  * None
+
+**Returns**
+  * Promise
+
+**Promise Return**
+  * `accountId` Account number as a string
+  * `projectedBill` Low-end projected bill amount for the current billing period (number)
+  * `usageHistory` Each object is one billing period
+      * `Date` Billing read date (MM/DD/YYYY)
+      * `MeterReading` Cumulative meter reading
+      * `ReadingDetails` `"Actual"` or `"Estimated"`
+      * `CCfs` Usage in CCF for the period
+      * `Therms` Usage in Therms for the period
+      * `DaysUsed` Number of days in the billing period
+  * `dailyUsage` Each object is one day of usage across all available billing periods
+      * `date` JavaScript `Date` object for the day
+      * `dayOfWeek` e.g. `"Monday"`
+      * `therms` Therms consumed
+      * `cost` Dollar cost for the day
+      * `avgTemp` Average temperature (°F)
+      * `meterRead` Cumulative meter read value
+      * `readType` `"ACTUAL"` or `"ESTIMATED"`
+      * `billingPeriod` Billing period range string, e.g. `"3/30/26-4/24/26"`
+
+**Example**
+```typescript
+import { NicorAPI } from 'southern-company-api';
+
+const API = new NicorAPI({ username: 'username', password: 'password' });
+await API.login();
+
+const data = await API.getNicorUsageHistory();
+
+console.info('Account ID:', data.accountId);
+console.info('Projected Bill:', data.projectedBill);
+
+/* Billing period rollups */
+console.info('Usage History', JSON.stringify(data.usageHistory));
+
+/* Result */
+[
+  { "Date": "03/30/2026", "MeterReading": "3454.000000", "ReadingDetails": "Actual", "CCfs": 95, "Therms": 99.75, "DaysUsed": 31 },
+  { "Date": "02/27/2026", "MeterReading": "3359.000000", "ReadingDetails": "Actual", "CCfs": 151, "Therms": 158.55, "DaysUsed": 30 }
+]
+
+/* Per-day records */
+console.info('Daily Usage', JSON.stringify(data.dailyUsage));
+
+/* Result */
+[
+  { "date": "2026-04-23T04:00:00.000Z", "dayOfWeek": "Thursday", "therms": 1.05, "cost": 2.88, "avgTemp": 58, "meterRead": 3493, "readType": "ACTUAL", "billingPeriod": "3/30/26-4/24/26" },
+  { "date": "2026-04-22T04:00:00.000Z", "dayOfWeek": "Wednesday", "therms": 1.05, "cost": 2.88, "avgTemp": 67, "meterRead": 3492, "readType": "ACTUAL", "billingPeriod": "3/30/26-4/24/26" }
+]
+```
