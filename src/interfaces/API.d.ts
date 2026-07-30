@@ -470,6 +470,10 @@ declare namespace API {
 		Data: API.MyPowerUsageResponse
 	}
 
+	export interface HourlyDataResponse extends Response{
+		Data: API.MyPowerUsageResponse
+	}
+
 	export interface GetServicePointNumbersResponse extends Response{
 		Data: {
 			estimatedBillIndicator: boolean;
@@ -556,6 +560,52 @@ declare namespace API {
 			}[];
 		};
 		alertCost: {
+			data: any[];
+		};
+		solarGeneration: {
+			data: any[];
+		};
+		solarGenerationDelayed: {
+			data: any[];
+		};
+		};
+		dailyDataSource: string;
+	}
+
+	export interface GetHourlyGraphData {
+		xAxis: {
+		labels: string[];
+		};
+		series: {
+		usage: {
+			data: {
+			x: number;
+			y: number;
+			name: string;
+			resolution: string;
+			}[];
+		};
+		cost: {
+			data: {
+			x: number;
+			y: number;
+			name: string;
+			resolution: string;
+			}[];
+		};
+		temp: {
+			data: {
+			x: number;
+			y: number;
+			name: string;
+			resolution: string;
+			}[];
+		};
+		/* Populated for solar-export accounts only; consistently empty otherwise. Semantics unconfirmed. */
+		costDelayed: {
+			data: any[];
+		};
+		usageDelayed: {
 			data: any[];
 		};
 		solarGeneration: {
