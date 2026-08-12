@@ -38,5 +38,29 @@ test('grabs list of daily data', async ()=>{
 
 	expect(returnedData).toHaveProperty('accountNumber');
 	expect(returnedData).toHaveProperty('data');
-	expect(returnedData.data.length).toBe(7);
+	expect(returnedData.data.length).toBe(8);
 });
+
+test('grabs hourly data for a service point', async ()=>{
+	const accounts = await API.getAccounts();
+	const servicePointNumber = accounts[0].servicePoints[0].servicePointNumber;
+
+	const endDate = new Date();
+	endDate.setDate(endDate.getDate() - 1);
+	const startDate = new Date();
+	startDate.setDate(startDate.getDate() - 2);
+
+	const returnedData = await API.getHourlyData(startDate, endDate, servicePointNumber);
+	
+	console.log(returnedData);
+
+	expect(returnedData).toHaveProperty('accountNumber');
+	expect(returnedData).toHaveProperty('data');
+	expect(returnedData.hasData).toBe(true);
+	expect(returnedData.data.length).toBeGreaterThan(0);
+	expect(returnedData.data[0]).toHaveProperty('date');
+	expect(returnedData.data[0]).toHaveProperty('kWh');
+	expect(returnedData.data[0]).toHaveProperty('cost');
+});
+
+
