@@ -40,3 +40,39 @@ test('grabs list of daily data', async ()=>{
 	expect(returnedData).toHaveProperty('data');
 	expect(returnedData.data.length).toBe(7);
 });
+
+test('grabs list of hourly data', async ()=>{
+	const accounts = await API.getAccounts();
+	const servicePointNumber = accounts[0].servicePoints[0].servicePointNumber;
+
+	const endDate = new Date();
+	endDate.setDate(endDate.getDate() - 1);
+	const startDate = new Date();
+	startDate.setDate(startDate.getDate() - 2);
+
+	const returnedData = await API.getHourlyData(startDate, endDate, servicePointNumber);
+
+	expect(returnedData).toHaveProperty('accountNumber');
+	expect(returnedData).toHaveProperty('hasData');
+	expect(returnedData).toHaveProperty('data');
+	expect(returnedData.data.length).toBe(48);
+	expect(returnedData.data[0]).toHaveProperty('date');
+	expect(returnedData.data[0]).toHaveProperty('kWh');
+	expect(returnedData.data[0]).toHaveProperty('cost');
+	expect(returnedData.data[0]).toHaveProperty('temp');
+});
+
+test('hourly data with startDate == endDate returns a single day', async ()=>{
+	const accounts = await API.getAccounts();
+	const servicePointNumber = accounts[0].servicePoints[0].servicePointNumber;
+
+	const date = new Date();
+	date.setDate(date.getDate() - 1);
+
+	const returnedData = await API.getHourlyData(date, date, servicePointNumber);
+
+	expect(returnedData).toHaveProperty('hasData');
+	if(returnedData.hasData){
+		expect(returnedData.data.length).toBe(24);
+	}
+});
