@@ -12,6 +12,7 @@
 		"clean": "rm -rf dist coverage",
 		"build": "npm run clean && tsc",
 		"test": "jest",
+		"test:no-hourly": "jest --testNamePattern='^(?!.*hourly).*$'",
 		"debug": "ts-node ./tests/debug.ts",
 		"prepublishOnly": "npm run build"
 	},
