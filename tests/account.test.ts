@@ -19,13 +19,6 @@ beforeAll(() => {
 test('grabs a list of accounts', async ()=>{
 	const accounts = await API.getAccounts();
 
-	if(!(accounts instanceof Array)){
-		throw new Error('Returned a none array');
-	}
-	else if(accounts.length === 0){
-		throw new Error('Returned an empty array');
-	}
-	else{
-		return;
-	}
+	expect(accounts).toHaveProperty('length');
+	expect(accounts.length).toBeGreaterThan(0);
 });

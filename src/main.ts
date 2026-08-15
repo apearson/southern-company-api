@@ -1,6 +1,6 @@
 /* Libraries */
 import fetch, { RequestRedirect } from 'node-fetch';
-import { parseISO } from "date-fns";
+import { parseISO, format, addDays } from "date-fns";
 
 /* Nicor Gas (LDC=7) */
 export { NicorAPI, parseAspNetDate } from './nicor';
@@ -8,7 +8,7 @@ export type { NicorConfig, NicorUsageHistoryEntry, NicorDailyUsageEntry, NicorUs
 
 /* Interfaces */
 import { Company, Account } from './interfaces/general';
-import {GetAllAccountsResponse, LoginResponse, MonthlyDataResponse} from './interfaces/responses';
+import { API } from './interfaces/API';
 
 /* Interfaces */
 export interface SouthernCompanyConfig{
@@ -195,6 +195,36 @@ export class SouthernCompanyAPI{
 		return token;
 	}
 
+	private async getServicePointNumbers(account: Account, jwt?: string) {
+		// If no jwt is passed in, login
+		if(!jwt && !this.jwt){
+			await this.login(this.config)
+		}
+
+		/* Checking to make sure we have a JWT to use */
+		if(!this.jwt){
+			throw new Error('Could not get accounts: Not Logged In');
+		}
+
+		/* Grabbing accounts from API */
+		const options = {
+			headers: {
+				Authorization: `Bearer ${this.jwt}`
+			}
+		};
+
+		const response = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/getMPUBasicAccountInformation/${account.number}/${account.company}`, options);
+
+		/* Checking for unsuccessful service points request */
+		if(response.status !== 200){
+			throw new Error(`Failed to get service points: ${response.statusText} ${await response.text()}`);
+		}
+
+		const res = await response.json() as API.GetServicePointNumbersResponse;
+
+		return  res.Data.meterAndServicePoints;
+	}
+
 	/* Public API methods */
 	public async login(config?: SouthernCompanyConfig){
 
@@ -239,7 +269,7 @@ export class SouthernCompanyAPI{
 		/* Grabbing accounts from API */
 		const options = {
 			headers: {
-				Authorization: `bearer ${this.jwt}`
+				Authorization: `Bearer ${this.jwt}`
 			}
 		};
 		const response = await fetch('https://customerservice2api.southerncompany.com/api/account/getAllAccounts', options);
@@ -250,14 +280,15 @@ export class SouthernCompanyAPI{
 		}
 
 		/* Parsing response */
-		const resData: GetAllAccountsResponse = await response.json() as GetAllAccountsResponse;
+		const resData = await response.json() as API.GetAllAccountsResponse;
 
 		/* Parsing accounts from response */
 		let accounts: Account[] = resData.Data.map((account)=>({
 			name: account.Description,
 			primary: account.PrimaryAccount,
 			number: account.AccountNumber,
-			company: Company[account.Company]
+			company: Company[account.Company],
+			servicePoints: []
 		}));
 
 		/* Filtering accounts if needed */
@@ -273,13 +304,23 @@ export class SouthernCompanyAPI{
 			accounts = accounts.filter((account)=> accountsFilter.includes(account.number.toString()));
 		}
 
+		/* Grabbing service point numbers for each account */
+		const requests = accounts.map(async (account)=>{
+			const servicePoints = await this.getServicePointNumbers(account, this.jwt);
+
+			account.servicePoints = servicePoints;
+
+			return account;
+		});
+
+		accounts = await Promise.all(requests);
+
 		/* Returning accounts */
 		return accounts;
 	}
 
 	/* Data methods */
 	public async getMonthlyData(jwt?: string){
-
 		// If no jwt is passed in, login
 		if(!jwt){
 			await this.login(this.config)
@@ -294,29 +335,25 @@ export class SouthernCompanyAPI{
 		let accounts = this.getConfigAccounts();
 
 		/* Creating a request for each account */
-		const requests = accounts.map((account)=>{
-			return fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${account.number}/Monthly?OPCO=${account.company}`, {
+		const dataRes = accounts.map(async (account)=>{
+			const response = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${account.number}/Monthly?OPCO=${account.company}`, {
 				method: 'GET',
 				headers: {
-					Authorization: `bearer ${this.jwt}`
+					Authorization: `Bearer ${this.jwt}`
 				}
 			});
-		});
 
-		/* Waiting for all requests */
-		const responses = await Promise.all(requests);
+			/* Checking for unsuccessful monthly data request */
+			if(response.status !== 200){
+				throw new Error(`Failed to get monthly data for account ${account.number}: ${response.statusText} ${await response.text()}`);
+			}
 
-		/* Converting all responses to json */
-		const resData = await Promise.all(responses.map((response)=> response.json())) as MonthlyDataResponse[];
+			/* Parsing response */
+			const resData = await response.json() as API.MonthlyDataResponse;
 
-		/* Grabbing data from all responses */
-		const monthlyData = resData.filter(response => {
-			return JSON.parse(response.Data.Data) !== null;
-		}).map((response, index)=> {
-			/* Parsing graph data */
-			const chartData = JSON.parse(response.Data.Data);
+			/* Grabbing data from response */
+			const chartData = JSON.parse(resData.Data.Data);
 
-			/* Checking to see if there is any optional data */
 			let monthlyData = chartData.series.usage.data
 				.map((d, i) => ({
 					startDate: parseISO(d.startDate),
@@ -325,10 +362,173 @@ export class SouthernCompanyAPI{
 					cost: chartData.series.cost.data[i].y
 				}));
 
-			return monthlyData;
+			/* Adding account number to data */
+			return {
+				accountNumber: account.number,
+				data: monthlyData
+			}
 		});
 
-		/* Returning monthly data */
-		return monthlyData;
+		/* Waiting for all requests */
+		return await Promise.all(dataRes);
+	}
+
+	public async getDailyData(startDate: Date, endDate: Date, servicePointNumber: string, jwt?: string){
+		// If no jwt is passed in, login
+		if(!jwt){
+			await this.login(this.config)
+		}
+
+		/* Checking to make sure we have a JWT to use */
+		if(!this.jwt){
+			throw new Error('Could not get monthly data: Not Logged In');
+		}
+
+		/* Formatting dates to MM/DD/YYYY */
+		// The MPUData endpoint treats EndDate as exclusive (half-open range),
+		// so we add a day to make this method's endDate argument inclusive,
+		// matching what the parameter name implies and what the README documents.
+		const startDateString = format(startDate, 'MM/dd/yyyy');
+		const endDateString = format(addDays(endDate, 1), 'MM/dd/yyyy');
+
+		/* Calulating which accounts to fetch data from */
+		const accounts = this.getConfigAccounts();
+
+		/* Figure out which account has the service point number */
+		const account = accounts.find((account)=>{
+			return account.servicePoints.some((servicePoint)=> servicePoint.servicePointNumber === servicePointNumber);
+		});
+
+		if(!account){
+			throw new Error(`Could not find account with service point number ${servicePointNumber}`);
+		}
+
+		/* Creating a request for each account */
+		const res = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${account.number}/Daily?OPCO=${account.company}&StartDate=${startDateString}&EndDate=${endDateString}&intervalBehavior=Automatic&ServicePointNumber=${servicePointNumber}`, {
+			method: 'GET',
+			headers: {
+				Authorization: `Bearer ${this.jwt}`
+			}
+		});
+
+		const data = await res.json() as API.DailyDataResponse;
+
+		/* Aged-out or malformed ranges come back as HTTP 200 with HasData: false and Data.Data: null. */
+		if(!data.Data.HasData || !data.Data.Data){
+			return {
+				accountNumber: account.number,
+				hasData: false,
+				data: []
+			};
+		}
+
+		const graphData = JSON.parse(data.Data.Data) as API.GetDailyGraphData;
+
+		const combinedCost = [
+			...graphData.series.weekdayCost.data,
+			...graphData.series.weekendCost.data
+		];
+
+		const combinedUsage = [
+			...graphData.series.weekdayUsage.data,
+			...graphData.series.weekendUsage.data
+		];
+
+		const combinedUsageCost = combinedUsage
+		.sort((a, b) => a.x - b.x)
+		.map(({name, y, x}) => {
+			// Find matching cost entry by x value
+			const costEntry = combinedCost.find(cost => cost.x === x);
+
+			return {
+				date: name,
+				kWh: y,
+				cost: costEntry?.y || 0
+			};
+		});
+
+		return {
+			accountNumber: account.number,
+			hasData: true,
+			data: combinedUsageCost.map((d)=>({
+				date: parseISO(d.date),
+				kWh: d.kWh,
+				cost: d.cost
+			}))
+		};
+	}
+
+	public async getHourlyData(startDate: Date, endDate: Date, servicePointNumber: string, jwt?: string){
+		// If no jwt is passed in, login
+		if(!jwt){
+			await this.login(this.config)
+		}
+
+		/* Checking to make sure we have a JWT to use */
+		if(!this.jwt){
+			throw new Error('Could not get hourly data: Not Logged In');
+		}
+
+		/* Formatting dates to MM/DD/YYYY. EndDate is exclusive on the API, so add a day to make this method's endDate argument inclusive. */
+		const startDateString = format(startDate, 'MM/dd/yyyy');
+		const endDateString = format(addDays(endDate, 1), 'MM/dd/yyyy');
+
+		/* Calulating which accounts to fetch data from */
+		const accounts = this.getConfigAccounts();
+
+		/* Figure out which account has the service point number */
+		const account = accounts.find((account)=>{
+			return account.servicePoints.some((servicePoint)=> servicePoint.servicePointNumber === servicePointNumber);
+		});
+
+		if(!account){
+			throw new Error(`Could not find account with service point number ${servicePointNumber}`);
+		}
+
+		/* Creating a request for each account */
+		const res = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${account.number}/Hourly?OPCO=${account.company}&StartDate=${startDateString}&EndDate=${endDateString}&intervalBehavior=Automatic&ServicePointNumber=${servicePointNumber}`, {
+			method: 'GET',
+			headers: {
+				Authorization: `Bearer ${this.jwt}`
+			}
+		});
+
+		const data = await res.json() as API.HourlyDataResponse;
+
+		/* Aged-out or malformed ranges come back as HTTP 200 with HasData: false and Data.Data: null. */
+		if(!data.Data.HasData || !data.Data.Data){
+			return {
+				accountNumber: account.number,
+				hasData: false,
+				data: []
+			};
+		}
+
+		const graphData = JSON.parse(data.Data.Data) as API.GetHourlyGraphData;
+
+		const usageCost = graphData.series.usage.data
+		.sort((a, b) => a.x - b.x)
+		.map(({name, y, x})=>{
+			const costEntry = graphData.series.cost.data.find(cost => cost.x === x);
+			const tempEntry = graphData.series.temp.data.find(temp => temp.x === x);
+
+			return {
+				date: name,
+				kWh: y,
+				cost: costEntry?.y || 0,
+				temp: tempEntry?.y
+			};
+		});
+
+		return {
+			accountNumber: account.number,
+			hasData: true,
+			data: usageCost.map((d)=>({
+				date: parseISO(d.date),
+				kWh: d.kWh,
+				cost: d.cost,
+				temp: d.temp
+			}))
+		};
 	}
 }

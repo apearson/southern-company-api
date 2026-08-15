@@ -20,13 +20,8 @@ beforeAll(() => {
 test('grabs list of monthly data', async ()=>{
 	const data = await API.getMonthlyData();
 
-	if(!(data instanceof Array)){
-		throw new Error('Returned a none array');
-	}
-	else if(data.length === 0){
-		throw new Error('Returned an empty array');
-	}
-	else{
-		return;
-	}
+	expect(data.length).toBeGreaterThan(0);
+	expect(data[0]).toHaveProperty('accountNumber');
+	expect(data[0]).toHaveProperty('data');
+	expect(data[0].data.length).toBeGreaterThan(0);
 });

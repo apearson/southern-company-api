@@ -5,9 +5,6 @@
 
 Node.js Library to access utility data from Southern Company power utilities (Alabama Power, Georgia Power, Mississippi Power)
 
-**In search of testers with active accounts not in a time of use plan.**
-No coding required, just need to verify API responses.  Open an issue if you would like to help.
-
 ## Example
 ```typescript
 /* Importing Library */
@@ -22,33 +19,18 @@ const SouthernCompany = new SouthernCompanyAPI({
   accounts: ['123123123']
 });
 
-/* Listening for login success */
-SouthernCompany.on('connected', ()=>{
-  console.info('Connected...');
+const accounts = await API.getAccounts();
+console.log("Accounts", JSON.stringify(accounts));
 
-  async function fetchMonthly() {
-    /* Getting Monthly Data */
-    const monthlyData = await SouthernCompany.getMonthlyData();
+/* Grabbing Monthly Data */
+const data = await API.getMonthlyData();
+console.log("Monthly Data", JSON.stringify(data));
 
-    /* Printing Monthly Data */
-    console.info('Monthly Data', JSON.stringify(monthlyData));
-  }
-  fetchMonthly();
-
-  async function fetchDaily() {
-    /* Getting Daily Data */
-    const startDate = new Date(2020, 2, 1);
-    const endDate = new Date();
-    const dailyData = await SouthernCompany.getDailyData(startDate, endDate);
-
-    /* Printing daily data */
-    console.info('Daily Data', JSON.stringify(dailyData));
-  }
-  fetchDaily();
-});
-
-/* Listening for any errors */
-SouthernCompany.on('error', console.error);
+/* GettiGrabbingng Daily Data */
+const servicePointNumber = accounts[0].servicePoints[0].servicePointNumber;
+const startDate = new Date(2020, 2, 1);
+const endDate = new Date();
+const dailyData = await SouthernCompany.getDailyData(startDate, endDate, servicePointNumber);
 ```
 
 ## API
@@ -63,36 +45,10 @@ const API = new SouthernCompanyAPI({
 });
 ```
 
-### Events
-The instantiated object extends the [EventEmitter](https://nodejs.org/api/events.html) class built into node. To listen for events use the `.on(eventName, listener)` method.
-
-Current Events:
-  * connected (On connection success)
-  * reconnected (On reconnection success)
-  * error (On login failure)
-
-```typescript
-/* Listening for connection success */
-API.on('connected', ()=>{
-  console.info('Connected...');
-});
-
-/* Listening for connection success */
-API.on('reconnected', ()=>{
-  console.info('Reconnected...');
-});
-
-
-/* Listening for any errors */
-API.on('error', (error)=>{
-  console.error('An error occured', error);
-});
-```
-
 ### Data methods
 #### getMonthlyData()
 **Description**
-This method collects all monthly data on all accounts from the time they were opened to the last complete month of data.
+This method collects all monthly data on all accounts from the earliest available to the last complete month of data.
 
 **Arguments**
   * None
@@ -121,12 +77,11 @@ console.info('Monthly Data', JSON.stringify(monthlyData));
 
 /* Result */
 [{
-  "name":"Apartment",
-  "accountNumber":0000000000,
+  "accountNumber": 0000000000,
   "data":[
-    {"date":"2017-03-01T06:00:00.000Z","cost":66.66,"kWh":416,"bill":87},
-    {"date":"2017-04-01T06:00:00.000Z","cost":62.23,"kWh":380,"bill":87},
-    {"date":"2017-05-01T06:00:00.000Z","cost":65.42,"kWh":406,"bill":87}
+    {"startDate": "2024-02-16T00:00:00.000Z", "endDate": "2024-03-19T00:00:00.000Z", "cost":66.66,"kWh":416},
+    {"startDate": "2024-03-19T00:00:00.000Z", "endDate": "2024-04-17T00:00:00.000Z",,"cost":62.23,"kWh":380},
+    {"startDate": "2024-04-17T00:00:00.000Z", "endDate": "2024-05-17T00:00:00.000Z",,"cost":65.42,"kWh":406}
   ]
 }]
 ```
@@ -134,11 +89,12 @@ console.info('Monthly Data', JSON.stringify(monthlyData));
 
 #### getDailyData()
 **Description**
-This method collects daily data from the `startDate` provided to the `endDate` provided.
+This method collects daily data from the `startDate` provided to the `endDate` provided, inclusive of both dates.
 
 **Arguments**
   * `startDate` First date (Date) to include in collection
   * `endDate` Last date (Date) to include in collection
+  * `servicePointNumber` Service point number of the meter to collect data for
 
 **Returns**
   * Promise
@@ -147,25 +103,26 @@ This method collects daily data from the `startDate` provided to the `endDate` p
   * `data` Each index of array is an account retrieved
       * `name` Name of the account
       * `accountNumber` Account number
-      * `data` Each object of array is a month of data
+      * `hasData` `false` if the utility has no data for the requested range (e.g. it falls outside the retention window); `data` will be empty in that case. `true` otherwise.
+      * `data` Each object of array is a day of data
         * `date` M/D/YYYY of data
-        * `cost` Total energy cost for the date
         * `kWh` Total amount of kWh used during the date
+        * `cost` Total energy cost for the date
 
 **Example**
 ```typescript
 /* Getting Daily Data */
 const startDate = new Date(2017, 05, 01);
 const endDate = new Date(2017, 05, 02);
-const dailyData = await SouthernCompany.getDailyData(startDate, endDate);
+const dailyData = await SouthernCompany.getDailyData(startDate, endDate, servicePointNumber);
 
 /* Printing daily data */
 console.info('Daily Data', JSON.stringify(data));
 
 /* Result */
 [{
-  "name":"Apartment",
   "accountNumber": 0000000000,
+  "hasData": true,
   "data":[
     {"date":"2017-05-01T06:00:00.000Z", "cost":2.17, "kWh":12.76},
     {"date":"2017-05-02T06:00:00.000Z", "cost":77, "kWh":77}
@@ -174,7 +131,52 @@ console.info('Daily Data', JSON.stringify(data));
 ```
 
 
-### How Authentication Works
+#### getHourlyData()
+**Description**
+This method collects hourly data from the `startDate` provided to the `endDate` provided, inclusive of both dates. A single call covers the whole range — there's no need to loop per day.
+
+Hourly data is retained by the utility for roughly 3.6 years, considerably deeper than the ~33-day window offered by the portal's own CSV export.
+
+**Arguments**
+  * `startDate` First date (Date) to include in collection
+  * `endDate` Last date (Date) to include in collection
+  * `servicePointNumber` Service point number of the meter to collect data for
+
+**Returns**
+  * Promise
+
+**Promise Return**
+  * `data` Each index of array is an account retrieved
+      * `accountNumber` Account number
+      * `hasData` `false` if the utility has no data for the requested range (e.g. it falls outside the retention window); `data` will be empty in that case. `true` otherwise.
+      * `data` Each object of array is an hour of data
+        * `date` Local timestamp of the hour, transmitted with no UTC offset
+        * `kWh` Total amount of kWh used during the hour
+        * `cost` Total energy cost for the hour
+        * `temp` Temperature during the hour, if reported
+
+**Example**
+```typescript
+/* Getting Hourly Data */
+const startDate = new Date(2026, 06, 24);
+const endDate = new Date(2026, 06, 24);
+const hourlyData = await SouthernCompany.getHourlyData(startDate, endDate, servicePointNumber);
+
+/* Printing hourly data */
+console.info('Hourly Data', JSON.stringify(hourlyData));
+
+/* Result */
+{
+  "accountNumber": 0000000000,
+  "hasData": true,
+  "data":[
+    {"date":"2026-07-24T16:00:00.000Z", "cost":0.31, "kWh":1.2, "temp":91}
+  ]
+}
+```
+
+
+## How Authentication Works
 1. Login Page is loaded
   * `Method` GET
   * `URL` https://webauth.southernco.com/account/login
