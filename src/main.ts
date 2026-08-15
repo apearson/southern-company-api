@@ -1,6 +1,6 @@
 /* Libraries */
 import fetch, { RequestRedirect } from 'node-fetch';
-import { parseISO, format } from "date-fns";
+import { parseISO, format, addDays } from "date-fns";
 
 /* Interfaces */
 import { Company, Account } from './interfaces/general';
@@ -381,8 +381,11 @@ export class SouthernCompanyAPI{
 		}
 
 		/* Formatting dates to MM/DD/YYYY */
+		// The MPUData endpoint treats EndDate as exclusive (half-open range),
+		// so we add a day to make this method's endDate argument inclusive,
+		// matching what the parameter name implies and what the README documents.
 		const startDateString = format(startDate, 'MM/dd/yyyy');
-		const endDateString = format(endDate, 'MM/dd/yyyy');
+		const endDateString = format(addDays(endDate, 1), 'MM/dd/yyyy');
 
 		/* Calulating which accounts to fetch data from */
 		const accounts = this.getConfigAccounts();
@@ -405,6 +408,15 @@ export class SouthernCompanyAPI{
 		});
 
 		const data = await res.json() as API.DailyDataResponse;
+
+		/* Aged-out or malformed ranges come back as HTTP 200 with HasData: false and Data.Data: null. */
+		if(!data.Data.HasData || !data.Data.Data){
+			return {
+				accountNumber: account.number,
+				hasData: false,
+				data: []
+			};
+		}
 
 		const graphData = JSON.parse(data.Data.Data) as API.GetDailyGraphData;
 
@@ -433,10 +445,85 @@ export class SouthernCompanyAPI{
 
 		return {
 			accountNumber: account.number,
+			hasData: true,
 			data: combinedUsageCost.map((d)=>({
 				date: parseISO(d.date),
 				kWh: d.kWh,
 				cost: d.cost
+			}))
+		};
+	}
+
+	public async getHourlyData(startDate: Date, endDate: Date, servicePointNumber: string, jwt?: string){
+		// If no jwt is passed in, login
+		if(!jwt){
+			await this.login(this.config)
+		}
+
+		/* Checking to make sure we have a JWT to use */
+		if(!this.jwt){
+			throw new Error('Could not get hourly data: Not Logged In');
+		}
+
+		/* Formatting dates to MM/DD/YYYY. EndDate is exclusive on the API, so add a day to make this method's endDate argument inclusive. */
+		const startDateString = format(startDate, 'MM/dd/yyyy');
+		const endDateString = format(addDays(endDate, 1), 'MM/dd/yyyy');
+
+		/* Calulating which accounts to fetch data from */
+		const accounts = this.getConfigAccounts();
+
+		/* Figure out which account has the service point number */
+		const account = accounts.find((account)=>{
+			return account.servicePoints.some((servicePoint)=> servicePoint.servicePointNumber === servicePointNumber);
+		});
+
+		if(!account){
+			throw new Error(`Could not find account with service point number ${servicePointNumber}`);
+		}
+
+		/* Creating a request for each account */
+		const res = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${account.number}/Hourly?OPCO=${account.company}&StartDate=${startDateString}&EndDate=${endDateString}&intervalBehavior=Automatic&ServicePointNumber=${servicePointNumber}`, {
+			method: 'GET',
+			headers: {
+				Authorization: `Bearer ${this.jwt}`
+			}
+		});
+
+		const data = await res.json() as API.HourlyDataResponse;
+
+		/* Aged-out or malformed ranges come back as HTTP 200 with HasData: false and Data.Data: null. */
+		if(!data.Data.HasData || !data.Data.Data){
+			return {
+				accountNumber: account.number,
+				hasData: false,
+				data: []
+			};
+		}
+
+		const graphData = JSON.parse(data.Data.Data) as API.GetHourlyGraphData;
+
+		const usageCost = graphData.series.usage.data
+		.sort((a, b) => a.x - b.x)
+		.map(({name, y, x})=>{
+			const costEntry = graphData.series.cost.data.find(cost => cost.x === x);
+			const tempEntry = graphData.series.temp.data.find(temp => temp.x === x);
+
+			return {
+				date: name,
+				kWh: y,
+				cost: costEntry?.y || 0,
+				temp: tempEntry?.y
+			};
+		});
+
+		return {
+			accountNumber: account.number,
+			hasData: true,
+			data: usageCost.map((d)=>({
+				date: parseISO(d.date),
+				kWh: d.kWh,
+				cost: d.cost,
+				temp: d.temp
 			}))
 		};
 	}

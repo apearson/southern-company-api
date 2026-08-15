@@ -89,11 +89,12 @@ console.info('Monthly Data', JSON.stringify(monthlyData));
 
 #### getDailyData()
 **Description**
-This method collects daily data from the `startDate` provided to the `endDate` provided.
+This method collects daily data from the `startDate` provided to the `endDate` provided, inclusive of both dates.
 
 **Arguments**
   * `startDate` First date (Date) to include in collection
   * `endDate` Last date (Date) to include in collection
+  * `servicePointNumber` Service point number of the meter to collect data for
 
 **Returns**
   * Promise
@@ -102,7 +103,8 @@ This method collects daily data from the `startDate` provided to the `endDate` p
   * `data` Each index of array is an account retrieved
       * `name` Name of the account
       * `accountNumber` Account number
-      * `data` Each object of array is a month of data
+      * `hasData` `false` if the utility has no data for the requested range (e.g. it falls outside the retention window); `data` will be empty in that case. `true` otherwise.
+      * `data` Each object of array is a day of data
         * `date` M/D/YYYY of data
         * `kWh` Total amount of kWh used during the date
         * `cost` Total energy cost for the date
@@ -112,7 +114,7 @@ This method collects daily data from the `startDate` provided to the `endDate` p
 /* Getting Daily Data */
 const startDate = new Date(2017, 05, 01);
 const endDate = new Date(2017, 05, 02);
-const dailyData = await SouthernCompany.getDailyData(startDate, endDate);
+const dailyData = await SouthernCompany.getDailyData(startDate, endDate, servicePointNumber);
 
 /* Printing daily data */
 console.info('Daily Data', JSON.stringify(data));
@@ -120,11 +122,57 @@ console.info('Daily Data', JSON.stringify(data));
 /* Result */
 [{
   "accountNumber": 0000000000,
+  "hasData": true,
   "data":[
     {"date":"2017-05-01T06:00:00.000Z", "cost":2.17, "kWh":12.76},
     {"date":"2017-05-02T06:00:00.000Z", "cost":77, "kWh":77}
   ]
 }]
+```
+
+
+#### getHourlyData()
+**Description**
+This method collects hourly data from the `startDate` provided to the `endDate` provided, inclusive of both dates. A single call covers the whole range — there's no need to loop per day.
+
+Hourly data is retained by the utility for roughly 3.6 years, considerably deeper than the ~33-day window offered by the portal's own CSV export.
+
+**Arguments**
+  * `startDate` First date (Date) to include in collection
+  * `endDate` Last date (Date) to include in collection
+  * `servicePointNumber` Service point number of the meter to collect data for
+
+**Returns**
+  * Promise
+
+**Promise Return**
+  * `data` Each index of array is an account retrieved
+      * `accountNumber` Account number
+      * `hasData` `false` if the utility has no data for the requested range (e.g. it falls outside the retention window); `data` will be empty in that case. `true` otherwise.
+      * `data` Each object of array is an hour of data
+        * `date` Local timestamp of the hour, transmitted with no UTC offset
+        * `kWh` Total amount of kWh used during the hour
+        * `cost` Total energy cost for the hour
+        * `temp` Temperature during the hour, if reported
+
+**Example**
+```typescript
+/* Getting Hourly Data */
+const startDate = new Date(2026, 06, 24);
+const endDate = new Date(2026, 06, 24);
+const hourlyData = await SouthernCompany.getHourlyData(startDate, endDate, servicePointNumber);
+
+/* Printing hourly data */
+console.info('Hourly Data', JSON.stringify(hourlyData));
+
+/* Result */
+{
+  "accountNumber": 0000000000,
+  "hasData": true,
+  "data":[
+    {"date":"2026-07-24T16:00:00.000Z", "cost":0.31, "kWh":1.2, "temp":91}
+  ]
+}
 ```
 
 
