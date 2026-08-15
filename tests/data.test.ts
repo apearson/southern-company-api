@@ -38,7 +38,7 @@ test('grabs list of daily data', async ()=>{
 
 	expect(returnedData).toHaveProperty('accountNumber');
 	expect(returnedData).toHaveProperty('data');
-	expect(returnedData.data.length).toBe(7);
+	expect(returnedData.data.length).toBe(8);
 });
 
 test('grabs list of hourly data', async ()=>{
