@@ -1,6 +1,6 @@
 import { CookieJar, extractJwt, fillCallbacks, loginCompany, parseHiddenForm } from '../src/auth';
 import { sanitize } from '../src/debug';
-import { accountsFromResponses, buildUsageUrl, readUsageGraph } from '../src/usage';
+import { accountFiltersFromConfig, accountsFromResponses, buildUsageUrl, indexServicePoints, readUsageGraph } from '../src/usage';
 
 function headers(values: Record<string, string | string[]>) {
 	return {
@@ -161,6 +161,27 @@ test('account and usage responses map to the public account shape', ()=>{
 	expect(url.searchParams.get('operatingCompany')).toBe('APC');
 	expect(url.searchParams.get('endDate')).toBe('10/08/2026');
 	expect(url.searchParams.get('servicePointId')).toBe('sp-1');
+});
+
+test('an empty account list does not filter, and service-point ids stay attached to the summary that issued them', ()=>{
+	expect(accountFiltersFromConfig({ accounts: [] })).toEqual([]);
+	expect(accountFiltersFromConfig({ accounts: [' 100 '], account: '200' })).toEqual(['100', '200']);
+
+	const first = indexServicePoints([{
+		accountNumber: 1,
+		accountId: '0000000001',
+		company: 'APC',
+		name: 'Home',
+		primary: 'Y',
+		servicePointNumber: 'issued-with-summary-a',
+		meterNumber: 'meter-1',
+		servicePointId: 'issued-with-summary-a',
+		serviceAgreementId: 'sa-1',
+		premiseId: 'prem-1'
+	}]);
+	expect(first.get('issued-with-summary-a')?.serviceAgreementId).toBe('sa-1');
+	expect(first.get('meter-1')?.serviceAgreementId).toBe('sa-1');
+	expect(first.has('issued-with-summary-b')).toBe(false);
 });
 
 test('debug keeps cookie names and hides cookie values', ()=>{

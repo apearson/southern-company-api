@@ -1,5 +1,5 @@
 /* Libraries */
-import { parseISO, format, addDays, subYears, isValid, parse } from "date-fns";
+import { parseISO, format, addDays, subMonths, isValid, parse } from "date-fns";
 
 /* Nicor Gas (LDC=7) */
 export { NicorAPI, parseAspNetDate } from './nicor';
@@ -10,8 +10,10 @@ import { Account } from './interfaces/general';
 import { API } from './interfaces/API';
 import { authenticateSouthernCompany, USER_AGENT } from './auth';
 import { createDebugLogger, isDebugEnabled, redactSecrets, DebugLogger } from './debug';
-import { ACCOUNT_API, USAGE_API, UsageTarget, accountIdMatches, accountsFromResponses, billFactorCode, buildUsageUrl, readUsageGraph } from './usage';
-import { southernFetch } from './http';
+import { ACCOUNT_API, USAGE_API, UsageTarget, accountFiltersFromConfig, accountIdMatches, accountsFromResponses, billFactorCode, buildUsageUrl, indexServicePoints, readUsageGraph } from './usage';
+import { SouthernResponse, southernFetch } from './http';
+
+const RETRYABLE_STATUS = new Set([403, 408, 429, 500, 502, 503, 504]);
 
 /* Interfaces */
 export interface SouthernCompanyConfig{
@@ -30,6 +32,8 @@ export class SouthernCompanyAPI{
 	private accounts: Account[] = [];
 	private targetsByServicePoint = new Map<string, UsageTarget>();
 	private targetsByAccount = new Map<number, UsageTarget>();
+	private session?: Promise<Account[]>;
+	private sessionReady = false;
 
 	constructor(config?: SouthernCompanyConfig){
 		if(config){
@@ -46,11 +50,9 @@ export class SouthernCompanyAPI{
 		/* Calulating which accounts to fetch data from */
 		let accounts: Account[] = this.accounts;
 
-		if(this.config?.accounts){
-			accounts = this.accounts.filter(a => this.config!.accounts?.some((filter)=> this.accountSelected(a, filter)));
-		}
-		else if(this.config?.account){
-			accounts = this.accounts.filter(a => this.accountSelected(a, this.config!.account as string));
+		const filters = accountFiltersFromConfig(this.config);
+		if(filters.length){
+			accounts = this.accounts.filter(a => filters.some((filter)=> this.accountSelected(a, filter)));
 		}
 
 		/* Returning accounts array */
@@ -77,12 +79,10 @@ export class SouthernCompanyAPI{
 	}
 
 	private async apiGet(url: string, step: string): Promise<any> {
-		this.debug.log(step, { path: safePath(url) });
-		const response = await southernFetch(url, { headers: this.authHeaders() }, this.debug);
+		const response = await this.fetchApi(url, step);
 		const text = response.text;
-		this.debug.log(`${step}.response`, { status: response.status, path: safePath(url) });
 		if(response.status !== 200){
-			throw new Error(`${step} failed: ${response.status} ${response.statusText} ${redactSecrets(text)}`);
+			throw new Error(`${step} failed: ${response.status} ${response.statusText} ${errorDetail(text)}`);
 		}
 
 		try {
@@ -102,17 +102,57 @@ export class SouthernCompanyAPI{
 	}
 
 	private targetForServicePoint(servicePointNumber: string): { account: Account; target: UsageTarget } {
+		const wanted = servicePointNumber.trim();
 		const accounts = this.getConfigAccounts();
 		const account = accounts.find((candidate)=> {
-			return candidate.servicePoints.some((servicePoint)=> servicePoint.servicePointNumber === servicePointNumber);
+			return candidate.servicePoints.some((servicePoint)=> servicePoint.servicePointNumber === wanted || servicePoint.meterNumber === wanted);
 		});
-		const target = this.targetsByServicePoint.get(servicePointNumber);
+		const target = this.targetsByServicePoint.get(wanted);
 
 		if(!account || !target){
-			throw new Error(`Could not find account with service point number ${servicePointNumber}`);
+			throw new Error(`Could not find a service point from the latest getAccounts() result (${this.targetsByServicePoint.size} ids loaded)`);
 		}
 
 		return { account, target };
+	}
+
+	/** Sign in once. Summary ids are encrypted per response, so a later login must not replace them before they are used. */
+	private async ensureSession(suppliedJwt?: string): Promise<void> {
+		if(suppliedJwt || (this.jwt && this.sessionReady)){
+			return;
+		}
+
+		if(!this.session){
+			this.session = this.login(this.config).finally(()=> {
+				this.session = undefined;
+			});
+		}
+
+		await this.session;
+	}
+
+	private async fetchApi(url: string, step: string): Promise<SouthernResponse> {
+		const started = Date.now();
+		const path = safePath(url);
+		this.debug.log(step, { path });
+		let response!: SouthernResponse;
+
+		for(let attempt = 1; attempt <= 3; attempt++){
+			response = await southernFetch(url, { headers: this.authHeaders() }, this.debug);
+			this.debug.log(`${step}.response`, {
+				status: response.status,
+				path,
+				elapsedMs: Date.now() - started,
+				attempt
+			});
+			if(response.status === 200 || !RETRYABLE_STATUS.has(response.status) || attempt === 3){
+				return response;
+			}
+			this.debug.log(`${step}.retry`, { status: response.status, attempt });
+			await new Promise((resolve)=> setTimeout(resolve, 500 * attempt));
+		}
+
+		return response;
 	}
 
 	/* Public API methods */
@@ -132,6 +172,7 @@ export class SouthernCompanyAPI{
 
 		/* Getting accounts if none are supplied */
 		await this.getAccounts();
+		this.sessionReady = true;
 
 		/* Returning */
 		return this.getConfigAccounts();
@@ -152,7 +193,7 @@ export class SouthernCompanyAPI{
 
 		const capBody = await this.apiGet(`${ACCOUNT_API}/Cap/`, 'accounts.list');
 		let capAccounts = arrayFrom(capBody);
-		const filters = this.accountFilters();
+		const filters = accountFiltersFromConfig(this.config);
 		if(filters.length){
 			capAccounts = capAccounts.filter((account)=> {
 				const accountId = String(account.accountNumber ?? account.accountId ?? '');
@@ -169,7 +210,7 @@ export class SouthernCompanyAPI{
 		await this.loadBillFactors(mapped.targets);
 
 		this.accounts = mapped.accounts;
-		this.targetsByServicePoint = new Map(mapped.targets.map((target)=> [target.servicePointNumber, target]));
+		this.targetsByServicePoint = indexServicePoints(mapped.targets);
 		this.targetsByAccount = new Map();
 		for(const target of mapped.targets){
 			if(!this.targetsByAccount.has(target.accountNumber)){
@@ -179,14 +220,6 @@ export class SouthernCompanyAPI{
 
 		this.debug.log('accounts.ready', { accounts: this.accounts.length, servicePoints: mapped.targets.length });
 		return this.getConfigAccounts();
-	}
-
-	private accountFilters(): string[] {
-		const filters = [...(this.config?.accounts ?? [])];
-		if(this.config?.account){
-			filters.push(this.config.account);
-		}
-		return filters;
 	}
 
 	private async loadBillFactors(targets: UsageTarget[]): Promise<void> {
@@ -220,10 +253,7 @@ export class SouthernCompanyAPI{
 
 	/* Data methods */
 	public async getMonthlyData(jwt?: string){
-		// If no jwt is passed in, login
-		if(!jwt){
-			await this.login(this.config)
-		}
+		await this.ensureSession(jwt);
 
 		/* Checking to make sure we have a JWT to use */
 		if(!this.jwt){
@@ -233,19 +263,16 @@ export class SouthernCompanyAPI{
 		/* Calulating which accounts to fetch data from */
 		let accounts = this.getConfigAccounts();
 		const endDate = format(new Date(), 'MM/dd/yyyy');
-		const startDate = format(subYears(new Date(), 10), 'MM/dd/yyyy');
+		const startDate = format(subMonths(new Date(), 24), 'MM/dd/yyyy');
 
 		/* Creating a request for each account */
 		const dataRes = accounts.map(async (account)=>{
 			const target = this.targetForAccount(account);
-			const response = await southernFetch(buildUsageUrl('Monthly', target, { startDate, endDate, maxBills: '120' }), {
-				method: 'GET',
-				headers: this.authHeaders()
-			}, this.debug);
+			const response = await this.fetchApi(buildUsageUrl('Monthly', target, { startDate, endDate, maxBills: '24' }), 'usage.monthly');
 
 			/* Checking for unsuccessful monthly data request */
 			if(response.status !== 200){
-				throw new Error(`Failed to get monthly data for account ${account.number}: ${response.status} ${response.statusText} ${redactSecrets(response.text)}`);
+				throw new Error(`Failed to get monthly data for account ${account.number}: ${response.status} ${response.statusText} ${errorDetail(response.text)}`);
 			}
 
 			/* Parsing response */
@@ -279,10 +306,7 @@ export class SouthernCompanyAPI{
 	}
 
 	public async getDailyData(startDate: Date, endDate: Date, servicePointNumber: string, jwt?: string){
-		// If no jwt is passed in, login
-		if(!jwt){
-			await this.login(this.config)
-		}
+		await this.ensureSession(jwt);
 
 		/* Checking to make sure we have a JWT to use */
 		if(!this.jwt){
@@ -294,13 +318,10 @@ export class SouthernCompanyAPI{
 		const endDateString = format(endDate, 'MM/dd/yyyy');
 
 		const { account, target } = this.targetForServicePoint(servicePointNumber);
-		const res = await southernFetch(buildUsageUrl('Daily', target, { startDate: startDateString, endDate: endDateString }), {
-			method: 'GET',
-			headers: this.authHeaders()
-		}, this.debug);
+		const res = await this.fetchApi(buildUsageUrl('Daily', target, { startDate: startDateString, endDate: endDateString }), 'usage.daily');
 
 		if(res.status !== 200){
-			throw new Error(`Failed to get daily data for account ${account.number}: ${res.status} ${res.statusText} ${redactSecrets(res.text)}`);
+			throw new Error(`Failed to get daily data for account ${account.number}: ${res.status} ${res.statusText} ${errorDetail(res.text)}`);
 		}
 
 		const data = JSON.parse(res.text);
@@ -358,10 +379,7 @@ export class SouthernCompanyAPI{
 	}
 
 	public async getHourlyData(startDate: Date, endDate: Date, servicePointNumber: string, jwt?: string){
-		// If no jwt is passed in, login
-		if(!jwt){
-			await this.login(this.config)
-		}
+		await this.ensureSession(jwt);
 
 		/* Checking to make sure we have a JWT to use */
 		if(!this.jwt){
@@ -373,13 +391,10 @@ export class SouthernCompanyAPI{
 		const endDateString = format(addDays(endDate, 1), 'MM/dd/yyyy');
 
 		const { account, target } = this.targetForServicePoint(servicePointNumber);
-		const res = await southernFetch(buildUsageUrl('Hourly', target, { startDate: startDateString, endDate: endDateString }), {
-			method: 'GET',
-			headers: this.authHeaders()
-		}, this.debug);
+		const res = await this.fetchApi(buildUsageUrl('Hourly', target, { startDate: startDateString, endDate: endDateString }), 'usage.hourly');
 
 		if(res.status !== 200){
-			throw new Error(`Failed to get hourly data for account ${account.number}: ${res.status} ${res.statusText} ${redactSecrets(res.text)}`);
+			throw new Error(`Failed to get hourly data for account ${account.number}: ${res.status} ${res.statusText} ${errorDetail(res.text)}`);
 		}
 
 		const data = JSON.parse(res.text);
@@ -421,6 +436,14 @@ export class SouthernCompanyAPI{
 	}
 }
 
+function errorDetail(text: string): string {
+	const trimmed = text.trim();
+	if(trimmed.startsWith('{') || trimmed.startsWith('[')){
+		return redactSecrets(trimmed);
+	}
+	return '';
+}
+
 function arrayFrom(body: any): any[] {
 	const data = body?.data ?? body?.Data;
 	return Array.isArray(data) ? data : [];
@@ -429,7 +452,8 @@ function arrayFrom(body: any): any[] {
 function safePath(url: string): string {
 	try {
 		const parsed = new URL(url);
-		return `${parsed.host}${parsed.pathname}`;
+		const path = parsed.pathname.split('/').map((part)=> part.length > 24 ? '[id]' : part).join('/');
+		return `${parsed.host}${path}`;
 	}
 	catch {
 		return url.split('?')[0];

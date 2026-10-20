@@ -20,6 +20,8 @@ beforeAll(() => {
 });
 
 describeLive('live single account', ()=>{
+jest.setTimeout(60000);
+
 test('grabs list of monthly data', async ()=>{
 	const data = await API.getMonthlyData();
 

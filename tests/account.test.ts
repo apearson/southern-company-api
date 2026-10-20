@@ -19,6 +19,8 @@ const describeLive = process.env.username && process.env.password ? describe : d
 
 /* Tests */
 describeLive('live account data', ()=>{
+jest.setTimeout(60000);
+
 test('grabs a list of accounts', async ()=>{
 	const accounts = await API.getAccounts();
 

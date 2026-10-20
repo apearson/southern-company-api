@@ -106,7 +106,7 @@ export function buildUsageUrl(kind: 'Daily' | 'Hourly' | 'Monthly', target: Usag
 		query.billFactorCode = target.billFactorCode;
 	}
 	if(kind === 'Monthly' && !query.maxBills){
-		query.maxBills = '120';
+		query.maxBills = '24';
 	}
 
 	for(const [key, value] of Object.entries(query)){
@@ -163,6 +163,28 @@ export function billFactorCode(body: unknown): string | undefined {
 	const characteristics = data.eligibilityCharacteristics;
 	const code = characteristics?.billFactorCode;
 	return typeof code === 'string' && code ? code : undefined;
+}
+
+/** Empty `accounts` means no filter. An encrypted service-point id is only valid for the summary that issued it. */
+export function accountFiltersFromConfig(config?: { account?: string; accounts?: string[] }): string[] {
+	const filters = (config?.accounts ?? []).map((value)=> value.trim()).filter((value)=> value.length > 0);
+	const account = config?.account?.trim();
+	if(account){
+		filters.push(account);
+	}
+	return filters;
+}
+
+export function indexServicePoints(targets: UsageTarget[]): Map<string, UsageTarget> {
+	const index = new Map<string, UsageTarget>();
+	for(const target of targets){
+		for(const key of [target.servicePointNumber, target.servicePointId, target.meterNumber]){
+			if(key && !index.has(key)){
+				index.set(key, target);
+			}
+		}
+	}
+	return index;
 }
 
 export function accountIdMatches(accountId: string, filter: string): boolean {

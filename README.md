@@ -50,7 +50,7 @@ Set `debug: true` on that config, or export `SOUTHERN_COMPANY_DEBUG=1`, to log e
 ### Data methods
 #### getMonthlyData()
 **Description**
-This method collects all monthly data on all accounts from the earliest available to the last complete month of data.
+This method collects monthly bill data for each account. The usage API is queried for the last 24 months, which is the range the portal requests.
 
 **Arguments**
   * None
