@@ -7,9 +7,7 @@ Node.js Library to access utility data from Southern Company power utilities (Al
 
 ## Looking for a maintainer
 
-Hi — I'm Andrew Pearson. I no longer have time to maintain this project.
-
-Southern Company recently changed its login (ForgeRock) and usage APIs, which broke this library. A working fix is in [PR #180](https://github.com/apearson/southern-company-api/pull/180). If you fork, start from there.
+This project is no longer maintained. Southern Company recently changed its login (ForgeRock) and usage APIs, which broke this library. A working fix is in [PR #180](https://github.com/apearson/southern-company-api/pull/180). If you fork, start from there.
 
 If you'd like to maintain it, or take it over as a fork, please [open an issue](https://github.com/apearson/southern-company-api/issues/new) or leave a comment. Once an actively maintained fork exists, this README and the npm package's deprecation message will point to it.
 
