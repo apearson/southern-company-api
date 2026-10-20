@@ -55,10 +55,12 @@ const API = new SouthernCompanyAPI({
 });
 ```
 
+Set `debug: true` on that config, or export `SOUTHERN_COMPANY_DEBUG=1`, to log each authentication and usage step. The log includes HTTP status, endpoint paths, and cookie names. Passwords, tokens, cookie values, and JWTs are not written.
+
 ### Data methods
 #### getMonthlyData()
 **Description**
-This method collects all monthly data on all accounts from the earliest available to the last complete month of data.
+This method collects monthly bill data for each account. The usage API is queried for the last 24 months, which is the range the portal requests.
 
 **Arguments**
   * None
@@ -187,32 +189,29 @@ console.info('Hourly Data', JSON.stringify(hourlyData));
 
 
 ## How Authentication Works
-1. Login Page is loaded
+Southern Company's customer portal now signs in through ForgeRock, then trades that session for the portal JWT. The library follows the same redirects a browser does:
+
+1. Start at the portal login URL, which redirects to WebAuth with app id `pr-occ-forgerock`.
   * `Method` GET
-  * `URL` https://webauth.southernco.com/account/login
-2. Grab the `RequestVerificationToken` from the login Page
-  * `RequestVerificationToken` can be found at the bottom of the page in a script tag.  Inside the tag the `RequestVerificationToken` is assigned to `webauth.aft`
-3. Login Request is initialized
+  * `URL` `https://customerservice2.southerncompany.com/Account/Login?returnUrl=/Billing/Home&company=SCS&appId=pr-occ-forgerock`
+2. WebAuth starts an OpenID Connect authorization-code login (PKCE is held in the WebAuth session cookies) and redirects to ForgeRock.
+  * `URL` `https://customerlogin.southernco.com/am/oauth2/authorize`
+  * Journey `occSecureLogin` in realm `/alpha`
+3. Submit the username and password to the ForgeRock authentication API.
   * `Method` POST
-  * `URL` https://webauth.southernco.com/api/login
-  * `Headers`
-    * `RequestVerificationToken`: `RequestVerificationToken`
-    * `Content-Type`: application/json
-  * `Body` (JSON Object):
-    * `username`: `username`
-    * `password`: `password`
-    * `params`
-      * `ReturnUrl` 'null'
-4. Grab the `ScWebToken` from the JSON response. Can be found in the `response.data.html` as a value on a hidden input with the name ScWebToken
-5. Grab the new `ScWebToken` from the set cookies from a secondary LoginComplete request.
-6. This secondary Southern Company Web Token can be traded in for a Southern Company JSON Web Token (`ScJwtToken`) that can be used with the API.
-  * `Method` GET
-  * `URL` https://customerservice2.southerncompany.com/Account/LoginValidated/JwtToken
-  * `Headers`
-    * `Cookie` ScWebToken=`ScWebToken`
-7. Grab the `ScJwtToken` from the response's cookies
-  * Cookie's name is ScJwtToken and contains the ScJwtToken
-  * This `ScJwtToken` can be used to authenticate all other API requests.
+  * `URL` `https://customerlogin.southernco.com/am/json/realms/root/realms/alpha/authenticate?authIndexType=service&authIndexValue=occSecureLogin`
+  * The first response is a `NameCallback` and `PasswordCallback`. Send those values back with the `authId`.
+  * A successful response contains a ForgeRock `tokenId`. That value is sent as the session cookie named in ForgeRock `serverinfo` (not `iPlanetDirectoryPro`).
+4. Repeat the authorize request with that session cookie. ForgeRock returns an auto-posted form (`code` and `state`) to `https://webauth.southernco.com/SPA/signin-forgerock-oidc-authcode`.
+5. Post that form with the WebAuth cookies from step 2 and follow redirects back to `customerservice2`.
+6. Read `ScJwtToken` from the response **header** of `https://customerservice2.southerncompany.com/Account/LoginValidated/JwtToken` (the portal no longer relies on the `ScJwtToken` set-cookie for this call). Use it as `Authorization: Bearer` on later requests.
+
+Account list and usage data now come from the Ascend APIs the portal uses:
+
+* Accounts: `https://occaccountapi.southerncompany.com/api/v1/Cap/` and `/api/v1/Accounts/{accountId}/Summary`
+* Usage: `https://occmypowerusageapi.southerncompany.com/api/v1/MyPowerUsage/UsageGraphData/{serviceAgreementId}/{Monthly|Daily|Hourly}`
+
+`getAccounts()`, `getMonthlyData()`, `getDailyData()`, and `getHourlyData()` keep the same arguments and return shapes. `servicePointNumber` is the meter's service point id from the account summary.
 
 ## Nicor Gas (LDC 7)
 
