@@ -1,5 +1,4 @@
 /* Libraries */
-import fetch from 'node-fetch';
 import { parseISO, format, addDays, subYears, isValid, parse } from "date-fns";
 
 /* Nicor Gas (LDC=7) */
@@ -12,6 +11,7 @@ import { API } from './interfaces/API';
 import { authenticateSouthernCompany, USER_AGENT } from './auth';
 import { createDebugLogger, isDebugEnabled, redactSecrets, DebugLogger } from './debug';
 import { ACCOUNT_API, USAGE_API, UsageTarget, accountIdMatches, accountsFromResponses, billFactorCode, buildUsageUrl, readUsageGraph } from './usage';
+import { southernFetch } from './http';
 
 /* Interfaces */
 export interface SouthernCompanyConfig{
@@ -78,8 +78,8 @@ export class SouthernCompanyAPI{
 
 	private async apiGet(url: string, step: string): Promise<any> {
 		this.debug.log(step, { path: safePath(url) });
-		const response = await fetch(url, { headers: this.authHeaders() });
-		const text = await response.text();
+		const response = await southernFetch(url, { headers: this.authHeaders() }, this.debug);
+		const text = response.text;
 		this.debug.log(`${step}.response`, { status: response.status, path: safePath(url) });
 		if(response.status !== 200){
 			throw new Error(`${step} failed: ${response.status} ${response.statusText} ${redactSecrets(text)}`);
@@ -238,18 +238,18 @@ export class SouthernCompanyAPI{
 		/* Creating a request for each account */
 		const dataRes = accounts.map(async (account)=>{
 			const target = this.targetForAccount(account);
-			const response = await fetch(buildUsageUrl('Monthly', target, { startDate, endDate, maxBills: '120' }), {
+			const response = await southernFetch(buildUsageUrl('Monthly', target, { startDate, endDate, maxBills: '120' }), {
 				method: 'GET',
 				headers: this.authHeaders()
-			});
+			}, this.debug);
 
 			/* Checking for unsuccessful monthly data request */
 			if(response.status !== 200){
-				throw new Error(`Failed to get monthly data for account ${account.number}: ${response.status} ${response.statusText} ${redactSecrets(await response.text())}`);
+				throw new Error(`Failed to get monthly data for account ${account.number}: ${response.status} ${response.statusText} ${redactSecrets(response.text)}`);
 			}
 
 			/* Parsing response */
-			const resData = await response.json();
+			const resData = JSON.parse(response.text);
 			const chartData = readUsageGraph(resData) as { series?: { usage?: { data?: any[] }; cost?: { data?: any[] } } } | null;
 			const usage = chartData?.series?.usage?.data;
 			if(!usage?.length){
@@ -294,16 +294,16 @@ export class SouthernCompanyAPI{
 		const endDateString = format(endDate, 'MM/dd/yyyy');
 
 		const { account, target } = this.targetForServicePoint(servicePointNumber);
-		const res = await fetch(buildUsageUrl('Daily', target, { startDate: startDateString, endDate: endDateString }), {
+		const res = await southernFetch(buildUsageUrl('Daily', target, { startDate: startDateString, endDate: endDateString }), {
 			method: 'GET',
 			headers: this.authHeaders()
-		});
+		}, this.debug);
 
 		if(res.status !== 200){
-			throw new Error(`Failed to get daily data for account ${account.number}: ${res.status} ${res.statusText} ${redactSecrets(await res.text())}`);
+			throw new Error(`Failed to get daily data for account ${account.number}: ${res.status} ${res.statusText} ${redactSecrets(res.text)}`);
 		}
 
-		const data = await res.json();
+		const data = JSON.parse(res.text);
 		const graphData = readUsageGraph(data) as API.GetDailyGraphData | null;
 
 		/* Aged-out or malformed ranges come back with no graph. */
@@ -373,16 +373,16 @@ export class SouthernCompanyAPI{
 		const endDateString = format(addDays(endDate, 1), 'MM/dd/yyyy');
 
 		const { account, target } = this.targetForServicePoint(servicePointNumber);
-		const res = await fetch(buildUsageUrl('Hourly', target, { startDate: startDateString, endDate: endDateString }), {
+		const res = await southernFetch(buildUsageUrl('Hourly', target, { startDate: startDateString, endDate: endDateString }), {
 			method: 'GET',
 			headers: this.authHeaders()
-		});
+		}, this.debug);
 
 		if(res.status !== 200){
-			throw new Error(`Failed to get hourly data for account ${account.number}: ${res.status} ${res.statusText} ${redactSecrets(await res.text())}`);
+			throw new Error(`Failed to get hourly data for account ${account.number}: ${res.status} ${res.statusText} ${redactSecrets(res.text)}`);
 		}
 
-		const data = await res.json();
+		const data = JSON.parse(res.text);
 		const graphData = readUsageGraph(data) as API.GetHourlyGraphData | null;
 
 		/* Aged-out or malformed ranges come back with no graph. */

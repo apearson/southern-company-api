@@ -3,7 +3,15 @@ export interface DebugLogger {
 	log(step: string, details?: Record<string, unknown>): void;
 }
 
-const SECRET_KEY = /password|token|cookie|authid|authorization|jwt|secret|verifier/i;
+const SECRET_KEY = /password|token|authid|authorization|jwt|secret|verifier|cookie/i;
+
+/** Cookie names are safe to log. Cookie values are not. */
+function isSecretKey(key: string): boolean {
+	if(/cookie/i.test(key) && /name/i.test(key)){
+		return false;
+	}
+	return SECRET_KEY.test(key);
+}
 
 /** Opt-in via `config.debug` or `SOUTHERN_COMPANY_DEBUG=1`. Never prints secrets. */
 export function isDebugEnabled(config?: { debug?: boolean }): boolean {
@@ -47,7 +55,7 @@ export function sanitize(value: unknown): unknown {
 	if(value && typeof value === 'object'){
 		const out: Record<string, unknown> = {};
 		for(const [key, entry] of Object.entries(value as Record<string, unknown>)){
-			out[key] = SECRET_KEY.test(key) ? '[redacted]' : sanitize(entry);
+			out[key] = isSecretKey(key) ? '[redacted]' : sanitize(entry);
 		}
 		return out;
 	}

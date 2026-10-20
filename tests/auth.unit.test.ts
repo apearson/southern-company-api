@@ -1,4 +1,5 @@
 import { CookieJar, extractJwt, fillCallbacks, loginCompany, parseHiddenForm } from '../src/auth';
+import { sanitize } from '../src/debug';
 import { accountsFromResponses, buildUsageUrl, readUsageGraph } from '../src/usage';
 
 function headers(values: Record<string, string | string[]>) {
@@ -160,6 +161,22 @@ test('account and usage responses map to the public account shape', ()=>{
 	expect(url.searchParams.get('operatingCompany')).toBe('APC');
 	expect(url.searchParams.get('endDate')).toBe('10/08/2026');
 	expect(url.searchParams.get('servicePointId')).toBe('sp-1');
+});
+
+test('debug keeps cookie names and hides cookie values', ()=>{
+	expect(sanitize({
+		ssoCookieName: 'c4928758b74fd64',
+		setCookieNames: ['ScJwtToken', 'dtCookie'],
+		cookie: 'ScJwtToken=aaa.bbb.ccc',
+		password: 'secret',
+		authorization: 'Bearer aaa.bbb.ccc'
+	})).toEqual({
+		ssoCookieName: 'c4928758b74fd64',
+		setCookieNames: ['ScJwtToken', 'dtCookie'],
+		cookie: '[redacted]',
+		password: '[redacted]',
+		authorization: '[redacted]'
+	});
 });
 
 test('usage graph reader accepts the new envelope and the old JSON string', ()=>{

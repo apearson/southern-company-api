@@ -1,5 +1,5 @@
-import fetch, { RequestRedirect, Response } from 'node-fetch';
 import { DebugLogger, createDebugLogger, redactSecrets, safeUrl } from './debug';
+import { SouthernResponse, southernFetch } from './http';
 
 export interface SouthernCompanyLogin {
 	username: string;
@@ -301,7 +301,7 @@ function decodeHtml(value: string): string {
 		.replace(/&gt;/g, '>');
 }
 
-async function request(jar: CookieJar, url: string, init: { method?: string; headers?: Record<string, string>; body?: string }, debug: DebugLogger, step: string): Promise<Response> {
+async function request(jar: CookieJar, url: string, init: { method?: string; headers?: Record<string, string>; body?: string }, debug: DebugLogger, step: string): Promise<SouthernResponse> {
 	const headers: Record<string, string> = {
 		'User-Agent': USER_AGENT,
 		Accept: 'text/html,application/json;q=0.9,*/*;q=0.8',
@@ -312,12 +312,11 @@ async function request(jar: CookieJar, url: string, init: { method?: string; hea
 		headers.Cookie = cookie;
 	}
 
-	const response = await fetch(url, {
+	const response = await southernFetch(url, {
 		method: init.method || 'GET',
 		headers,
-		body: init.body,
-		redirect: 'manual' as RequestRedirect
-	});
+		body: init.body
+	}, debug);
 	jar.absorb(url, response.headers);
 	debug.log(step, {
 		method: init.method || 'GET',
@@ -358,15 +357,15 @@ async function fetchSsoCookieName(jar: CookieJar, debug: DebugLogger): Promise<s
 			headers: { Accept: 'application/json', 'Accept-API-Version': 'resource=1.1' }
 		}, debug, 'auth.serverinfo');
 		if(response.status === 200){
-			const body = await response.json() as { cookieName?: string };
+			const body = JSON.parse(response.text) as { cookieName?: string };
 			if(body.cookieName){
-				debug.log('auth.serverinfo', { cookieNameFound: true });
+				debug.log('auth.serverinfo', { ssoCookieName: body.cookieName });
 				return body.cookieName;
 			}
 		}
 	}
 	catch {
-		debug.log('auth.serverinfo', { cookieNameFound: false });
+		debug.log('auth.serverinfo', { ssoCookieName: null });
 	}
 
 	return FALLBACK_SSO_COOKIE;
@@ -417,7 +416,7 @@ async function forgeRockLogin(jar: CookieJar, username: string, password: string
 	throw new Error('Login failed: ForgeRock authentication did not finish');
 }
 
-async function completePortalSession(jar: CookieJar, currentUrl: string, response: Response, debug: DebugLogger): Promise<string> {
+async function completePortalSession(jar: CookieJar, currentUrl: string, response: SouthernResponse, debug: DebugLogger): Promise<string> {
 	let url = currentUrl;
 	let current = response;
 
@@ -436,7 +435,7 @@ async function completePortalSession(jar: CookieJar, currentUrl: string, respons
 		}
 
 		if(current.status === 200){
-			const html = await current.text();
+			const html = current.text;
 			const form = parseHiddenForm(html);
 			if(form){
 				const action = new URL(form.action || url, url).toString();
@@ -483,12 +482,11 @@ async function completePortalSession(jar: CookieJar, currentUrl: string, respons
 	throw new Error(`Login failed: JwtToken returned status ${jwtResponse.status} without an ScJwtToken header or cookie`);
 }
 
-async function readJson(response: Response): Promise<any> {
-	const text = await response.text();
+async function readJson(response: SouthernResponse): Promise<any> {
 	try {
-		return JSON.parse(text);
+		return JSON.parse(response.text);
 	}
 	catch {
-		throw new Error(`Login failed: expected JSON (status ${response.status}) ${redactSecrets(text)}`);
+		throw new Error(`Login failed: expected JSON (status ${response.status}) ${redactSecrets(response.text)}`);
 	}
 }

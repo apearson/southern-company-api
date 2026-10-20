@@ -45,7 +45,7 @@ const API = new SouthernCompanyAPI({
 });
 ```
 
-Set `debug: true` on that config, or export `SOUTHERN_COMPANY_DEBUG=1`, to log each authentication and usage step. The log includes HTTP status and endpoint paths only. Passwords, tokens, and cookies are not written.
+Set `debug: true` on that config, or export `SOUTHERN_COMPANY_DEBUG=1`, to log each authentication and usage step. The log includes HTTP status, endpoint paths, and cookie names. Passwords, tokens, cookie values, and JWTs are not written.
 
 ### Data methods
 #### getMonthlyData()
