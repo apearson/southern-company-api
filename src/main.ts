@@ -313,9 +313,9 @@ export class SouthernCompanyAPI{
 			throw new Error('Could not get daily data: Not Logged In');
 		}
 
-		/* The portal sends these dates as an inclusive range. */
+		/* The usage API treats the daily end date as exclusive, same as hourly. Add a day so this argument stays inclusive. */
 		const startDateString = format(startDate, 'MM/dd/yyyy');
-		const endDateString = format(endDate, 'MM/dd/yyyy');
+		const endDateString = format(addDays(endDate, 1), 'MM/dd/yyyy');
 
 		const { account, target } = this.targetForServicePoint(servicePointNumber);
 		const res = await this.fetchApi(buildUsageUrl('Daily', target, { startDate: startDateString, endDate: endDateString }), 'usage.daily');
