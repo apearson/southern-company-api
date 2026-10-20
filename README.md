@@ -11,9 +11,9 @@ This project is no longer maintained. Southern Company recently changed its logi
 
 If you'd like to maintain it, or take it over as a fork, please [open an issue](https://github.com/apearson/southern-company-api/issues/new) or leave a comment. Once an actively maintained fork exists, this README and the npm package's deprecation message will point to it.
 
-**Recommended fork:** <!-- RECOMMENDED_FORK: replace the placeholder below with the URL of the actively maintained fork -->
+**Recommended fork:**
 
-> _[recommended fork link goes here]_
+> None so far
 
 ## Example
 ```typescript
