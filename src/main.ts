@@ -1,14 +1,17 @@
 /* Libraries */
-import fetch, { RequestRedirect } from 'node-fetch';
-import { parseISO, format, addDays } from "date-fns";
+import fetch from 'node-fetch';
+import { parseISO, format, addDays, subYears, isValid, parse } from "date-fns";
 
 /* Nicor Gas (LDC=7) */
 export { NicorAPI, parseAspNetDate } from './nicor';
 export type { NicorConfig, NicorUsageHistoryEntry, NicorDailyUsageEntry, NicorUsageData } from './nicor';
 
 /* Interfaces */
-import { Company, Account } from './interfaces/general';
+import { Account } from './interfaces/general';
 import { API } from './interfaces/API';
+import { authenticateSouthernCompany, USER_AGENT } from './auth';
+import { createDebugLogger, isDebugEnabled, redactSecrets, DebugLogger } from './debug';
+import { ACCOUNT_API, USAGE_API, UsageTarget, accountIdMatches, accountsFromResponses, billFactorCode, buildUsageUrl, readUsageGraph } from './usage';
 
 /* Interfaces */
 export interface SouthernCompanyConfig{
@@ -17,17 +20,25 @@ export interface SouthernCompanyConfig{
 	account?: string;
 	accounts?: string[];
 	company?: string;
+	/** Log each auth and usage step. Passwords, tokens, and cookies are never written. */
+	debug?: boolean;
 }
 
 export class SouthernCompanyAPI{
 	private config?: SouthernCompanyConfig;
 	public jwt?: string;
 	private accounts: Account[] = [];
+	private targetsByServicePoint = new Map<string, UsageTarget>();
+	private targetsByAccount = new Map<number, UsageTarget>();
 
 	constructor(config?: SouthernCompanyConfig){
 		if(config){
 			this.config = config;
 		}
+	}
+
+	private get debug(): DebugLogger {
+		return createDebugLogger(isDebugEnabled(this.config));
 	}
 
 	/* Utility Methods */
@@ -36,193 +47,72 @@ export class SouthernCompanyAPI{
 		let accounts: Account[] = this.accounts;
 
 		if(this.config?.accounts){
-			accounts = this.accounts.filter(a => this.config!.accounts?.includes(a.number.toString()));
+			accounts = this.accounts.filter(a => this.config!.accounts?.some((filter)=> this.accountSelected(a, filter)));
 		}
 		else if(this.config?.account){
-			accounts = this.accounts.filter(a => this.config!.account?.includes(a.number.toString()));
+			accounts = this.accounts.filter(a => this.accountSelected(a, this.config!.account as string));
 		}
 
 		/* Returning accounts array */
 		return accounts;
 	}
 
-	/* API methods */
-	private async getRequestVerificationToken(username: string, password: string){
-		/* Grabbing login page */
-		const response = await fetch('https://webauth.southernco.com/webservices/api/WebUser/Login', {
-			method: 'POST',
-			headers: {
-				"referer": "https://webauth.southernco.com/SPA/OCC/login",
-				"content-type": "application/json"
-			},
-			body: JSON.stringify({
-				"username": username,
-				"password": password
-			})
+	private accountSelected(account: Account, filter: string): boolean {
+		if(filter === account.number.toString()){
+			return true;
+		}
+
+		const target = this.targetsByAccount.get(account.number);
+		return target ? accountIdMatches(target.accountId, filter) : false;
+	}
+
+	private authHeaders(): Record<string, string> {
+		return {
+			Authorization: `Bearer ${this.jwt}`,
+			Accept: 'application/json',
+			'User-Agent': USER_AGENT,
+			Origin: 'https://customerservice2.southerncompany.com',
+			Referer: 'https://customerservice2.southerncompany.com/Billing/MyPowerUsage'
+		};
+	}
+
+	private async apiGet(url: string, step: string): Promise<any> {
+		this.debug.log(step, { path: safePath(url) });
+		const response = await fetch(url, { headers: this.authHeaders() });
+		const text = await response.text();
+		this.debug.log(`${step}.response`, { status: response.status, path: safePath(url) });
+		if(response.status !== 200){
+			throw new Error(`${step} failed: ${response.status} ${response.statusText} ${redactSecrets(text)}`);
+		}
+
+		try {
+			return JSON.parse(text);
+		}
+		catch {
+			throw new Error(`${step} failed: response was not JSON (${response.status})`);
+		}
+	}
+
+	private targetForAccount(account: Account): UsageTarget {
+		const target = this.targetsByAccount.get(account.number);
+		if(!target){
+			throw new Error(`Could not find a service agreement for account ${account.number}`);
+		}
+		return target;
+	}
+
+	private targetForServicePoint(servicePointNumber: string): { account: Account; target: UsageTarget } {
+		const accounts = this.getConfigAccounts();
+		const account = accounts.find((candidate)=> {
+			return candidate.servicePoints.some((servicePoint)=> servicePoint.servicePointNumber === servicePointNumber);
 		});
+		const target = this.targetsByServicePoint.get(servicePointNumber);
 
-		/* Checking for unsuccessful login */
-		if(response.status !== 200){
-			throw new Error(`Failed to get request verification token: ${response.statusText} ${await response.text()}`);
+		if(!account || !target){
+			throw new Error(`Could not find account with service point number ${servicePointNumber}`);
 		}
 
-		/* Converting login page response to text to search for token */
-		const res = await response.json();
-
-		return  res.data.token;
-	}
-
-	private async getScWebToken(requestVerificationToken: string){
-		/* Checking if there is a valid config */
-		if(!this.config)
-			throw new Error(`Failed to get ScWebToken: Need a valid config`);
-
-		/* Grab a ScWebToken by log in */
-		const options = {
-			method: 'POST',
-			headers: {
-				'content-type': 'application/x-www-form-urlencoded',
-				'Referer': 'https://webauth.southernco.com/SPA/OCC/login',
-			},
-			body: new URLSearchParams({
-				Token: requestVerificationToken,
-				ReturnUrl: 'none'
-			})
-		};
-
-		const response = await fetch('https://webauth.southernco.com/SPA/Navigation', options);
-
-		/* Checking for unsuccessful login */
-		if(response.status !== 200){
-			throw new Error(`Failed to get ScWebToken: ${response.statusText} ${await response.text()} ${JSON.stringify(options)}`);
-		}
-
-		const res = await response.text();
-
-		/* Regex to match token in response */
-		const matchRegex = /name="ScWebToken" value="(\S+\.\S+\.\S+)"/mi;
-
-		/* Matching response's form to get ScWebToken */
-		const data = matchRegex.exec(res);
-		const ScWebToken =  data != null ? data[1] : null;
-
-		if(ScWebToken == undefined)
-			throw new Error(`Could not find ScWebToken in response`)
-
-			/* Returning ScWebToken */
-		return ScWebToken;
-	}
-
-	private async getJwt(ScWebToken: string){
-		/* Trading ScWebToken for Jwt */
-		const swtoptions = {
-			method: 'POST',
-			headers: {
-				'content-type': 'application/x-www-form-urlencoded',
-				'Referer': 'https://webauth.southernco.com/'
-			},
-			body: new URLSearchParams({
-				ScWebToken: ScWebToken,
-			}),
-			redirect: "manual" as RequestRedirect
-		};
-
-		const swtresponse = await fetch('https://customerservice2.southerncompany.com/Account/LoginComplete?ReturnUrl=/Billing/Home', swtoptions);
-
-		/* Checking for unsuccessful login */
-		if(swtresponse.status !== 302){
-			const cook = swtresponse.headers.get('set-cookie');
-			throw new Error(`Failed to get secondary ScWebToken: ${swtresponse.statusText} ${cook} ${JSON.stringify(swtoptions)}`);
-		}
-				/* Regex to parse JWT out of headers */
-		const swtregex = /SouthernJwtCookie=(\S*);/i;
-
-		/* Parsing response header to get token */
-		let swtoken: string;
-		let swtcookies = swtresponse.headers.get('set-cookie');
-
-		if(swtcookies){
-			const swtmatches = swtcookies.match(swtregex);
-
-			/* Checking for matches */
-			if(swtmatches && swtmatches.length > 1){
-				swtoken = swtmatches[1];
-			}
-			else{
-				throw new Error(`Failed to get secondary ScWebToken: Could not find any token matches in headers`);
-			}
-		}
-		else{
-			throw new Error(`Failed to get secondary ScWebToken: No Cookies were sent back`);
-		}
-
-		// Now fetch JWT after secondary ScWebToken
-		const options = {
-			headers:{
-				Cookie: `SouthernJwtCookie=${swtoken}`
-			}
-		};
-
-		const response = await fetch('https://customerservice2.southerncompany.com/Account/LoginValidated/JwtToken', options);
-
-		if(response.status !== 200){
-			throw new Error(`Failed to get JWT: ${response.statusText} ${await response.text()} ${JSON.stringify(options)}`);
-		}
-
-		/* Regex to parse JWT out of headers */
-		const regex = /ScJwtToken=(\S*);/i;
-
-		/* Parsing response header to get token */
-		let token: string;
-		let cookies = response.headers.get('set-cookie');
-
-		if(cookies){
-			const matches = cookies.match(regex);
-
-			/* Checking for matches */
-			if(matches && matches.length > 1){
-				token = matches[1];
-			}
-			else{
-				throw new Error(`Failed to get JWT: Could not find any token matches in headers`);
-			}
-		}
-		else{
-			throw new Error(`Failed to get JWT: No Cookies were sent back`);
-		}
-
-		/* Returning JWT */
-		return token;
-	}
-
-	private async getServicePointNumbers(account: Account, jwt?: string) {
-		// If no jwt is passed in, login
-		if(!jwt && !this.jwt){
-			await this.login(this.config)
-		}
-
-		/* Checking to make sure we have a JWT to use */
-		if(!this.jwt){
-			throw new Error('Could not get accounts: Not Logged In');
-		}
-
-		/* Grabbing accounts from API */
-		const options = {
-			headers: {
-				Authorization: `Bearer ${this.jwt}`
-			}
-		};
-
-		const response = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/getMPUBasicAccountInformation/${account.number}/${account.company}`, options);
-
-		/* Checking for unsuccessful service points request */
-		if(response.status !== 200){
-			throw new Error(`Failed to get service points: ${response.statusText} ${await response.text()}`);
-		}
-
-		const res = await response.json() as API.GetServicePointNumbersResponse;
-
-		return  res.Data.meterAndServicePoints;
+		return { account, target };
 	}
 
 	/* Public API methods */
@@ -238,17 +128,10 @@ export class SouthernCompanyAPI{
 			throw new Error('Could not login: No config avaliable');
 		}
 
-		/* Request Verification Token */
-		const loginToken = await this.getRequestVerificationToken(this.config.username, this.config.password);
-
-		/* ScWebToken */
-		const ScWebToken = await this.getScWebToken(loginToken);
-
-		/* Saving JWT */
-		this.jwt = await this.getJwt(ScWebToken);
+		this.jwt = await authenticateSouthernCompany(this.config, this.debug);
 
 		/* Getting accounts if none are supplied */
-		this.accounts = await this.getAccounts();
+		await this.getAccounts();
 
 		/* Returning */
 		return this.getConfigAccounts();
@@ -258,7 +141,8 @@ export class SouthernCompanyAPI{
 
 		// If no jwt is passed in, login
 		if(!jwt && !this.jwt){
-			await this.login(this.config)
+			await this.login(this.config);
+			return this.getConfigAccounts();
 		}
 
 		/* Checking to make sure we have a JWT to use */
@@ -266,57 +150,72 @@ export class SouthernCompanyAPI{
 			throw new Error('Could not get accounts: Not Logged In');
 		}
 
-		/* Grabbing accounts from API */
-		const options = {
-			headers: {
-				Authorization: `Bearer ${this.jwt}`
-			}
-		};
-		const response = await fetch('https://customerservice2api.southerncompany.com/api/account/getAllAccounts', options);
-
-		/* Checking for unsuccessful api call */
-		if(response.status !== 200){
-			throw new Error(`Failed to get accounts: ${response.statusText} ${JSON.stringify(options)}`);
+		const capBody = await this.apiGet(`${ACCOUNT_API}/Cap/`, 'accounts.list');
+		let capAccounts = arrayFrom(capBody);
+		const filters = this.accountFilters();
+		if(filters.length){
+			capAccounts = capAccounts.filter((account)=> {
+				const accountId = String(account.accountNumber ?? account.accountId ?? '');
+				return filters.some((filter)=> accountIdMatches(accountId, filter));
+			});
 		}
 
-		/* Parsing response */
-		const resData = await response.json() as API.GetAllAccountsResponse;
-
-		/* Parsing accounts from response */
-		let accounts: Account[] = resData.Data.map((account)=>({
-			name: account.Description,
-			primary: account.PrimaryAccount,
-			number: account.AccountNumber,
-			company: Company[account.Company],
-			servicePoints: []
+		const summaries = await Promise.all(capAccounts.map(async (account)=> {
+			const accountId = String(account.accountNumber ?? account.accountId);
+			return this.apiGet(`${ACCOUNT_API}/Accounts/${encodeURIComponent(accountId)}/Summary`, 'accounts.summary');
 		}));
 
-		/* Filtering accounts if needed */
-		if(this.config?.account || this.config?.accounts){
-			/* Creating accounts array to compare against */
-			const accountsFilter = this.config.accounts ?? [];
-			if(this.config.account){
-				/* If only one account then place it in the array */
-				accountsFilter.push(this.config.account);
-			}
+		const mapped = accountsFromResponses(capAccounts, summaries);
+		await this.loadBillFactors(mapped.targets);
 
-			/* Filtering accounts */
-			accounts = accounts.filter((account)=> accountsFilter.includes(account.number.toString()));
+		this.accounts = mapped.accounts;
+		this.targetsByServicePoint = new Map(mapped.targets.map((target)=> [target.servicePointNumber, target]));
+		this.targetsByAccount = new Map();
+		for(const target of mapped.targets){
+			if(!this.targetsByAccount.has(target.accountNumber)){
+				this.targetsByAccount.set(target.accountNumber, target);
+			}
 		}
 
-		/* Grabbing service point numbers for each account */
-		const requests = accounts.map(async (account)=>{
-			const servicePoints = await this.getServicePointNumbers(account, this.jwt);
+		this.debug.log('accounts.ready', { accounts: this.accounts.length, servicePoints: mapped.targets.length });
+		return this.getConfigAccounts();
+	}
 
-			account.servicePoints = servicePoints;
+	private accountFilters(): string[] {
+		const filters = [...(this.config?.accounts ?? [])];
+		if(this.config?.account){
+			filters.push(this.config.account);
+		}
+		return filters;
+	}
 
-			return account;
-		});
+	private async loadBillFactors(targets: UsageTarget[]): Promise<void> {
+		const seen = new Set<string>();
+		await Promise.all(targets.map(async (target)=> {
+			const key = `${target.serviceAgreementId}:${target.company}`;
+			if(seen.has(key)){
+				return;
+			}
+			seen.add(key);
 
-		accounts = await Promise.all(requests);
-
-		/* Returning accounts */
-		return accounts;
+			try {
+				const body = await this.apiGet(
+					`${USAGE_API}/EligibilityDetails/${encodeURIComponent(target.serviceAgreementId)}/${encodeURIComponent(target.company)}`,
+					'usage.eligibility'
+				);
+				const code = billFactorCode(body);
+				if(code){
+					for(const candidate of targets){
+						if(candidate.serviceAgreementId === target.serviceAgreementId){
+							candidate.billFactorCode = code;
+						}
+					}
+				}
+			}
+			catch {
+				this.debug.log('usage.eligibility.skipped', { company: target.company });
+			}
+		}));
 	}
 
 	/* Data methods */
@@ -333,33 +232,39 @@ export class SouthernCompanyAPI{
 
 		/* Calulating which accounts to fetch data from */
 		let accounts = this.getConfigAccounts();
+		const endDate = format(new Date(), 'MM/dd/yyyy');
+		const startDate = format(subYears(new Date(), 10), 'MM/dd/yyyy');
 
 		/* Creating a request for each account */
 		const dataRes = accounts.map(async (account)=>{
-			const response = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${account.number}/Monthly?OPCO=${account.company}`, {
+			const target = this.targetForAccount(account);
+			const response = await fetch(buildUsageUrl('Monthly', target, { startDate, endDate, maxBills: '120' }), {
 				method: 'GET',
-				headers: {
-					Authorization: `Bearer ${this.jwt}`
-				}
+				headers: this.authHeaders()
 			});
 
 			/* Checking for unsuccessful monthly data request */
 			if(response.status !== 200){
-				throw new Error(`Failed to get monthly data for account ${account.number}: ${response.statusText} ${await response.text()}`);
+				throw new Error(`Failed to get monthly data for account ${account.number}: ${response.status} ${response.statusText} ${redactSecrets(await response.text())}`);
 			}
 
 			/* Parsing response */
-			const resData = await response.json() as API.MonthlyDataResponse;
+			const resData = await response.json();
+			const chartData = readUsageGraph(resData) as { series?: { usage?: { data?: any[] }; cost?: { data?: any[] } } } | null;
+			const usage = chartData?.series?.usage?.data;
+			if(!usage?.length){
+				return {
+					accountNumber: account.number,
+					data: []
+				};
+			}
 
-			/* Grabbing data from response */
-			const chartData = JSON.parse(resData.Data.Data);
-
-			let monthlyData = chartData.series.usage.data
+			let monthlyData = usage
 				.map((d, i) => ({
-					startDate: parseISO(d.startDate),
-					endDate: parseISO(d.endDate),
+					startDate: parseUsageDate(d.startDate || d.name),
+					endDate: parseUsageDate(d.endDate || d.name),
 					kWh: d.y,
-					cost: chartData.series.cost.data[i].y
+					cost: chartData?.series?.cost?.data?.[i]?.y
 				}));
 
 			/* Adding account number to data */
@@ -381,40 +286,28 @@ export class SouthernCompanyAPI{
 
 		/* Checking to make sure we have a JWT to use */
 		if(!this.jwt){
-			throw new Error('Could not get monthly data: Not Logged In');
+			throw new Error('Could not get daily data: Not Logged In');
 		}
 
-		/* Formatting dates to MM/DD/YYYY */
-		// The MPUData endpoint treats EndDate as exclusive (half-open range),
-		// so we add a day to make this method's endDate argument inclusive,
-		// matching what the parameter name implies and what the README documents.
+		/* The portal sends these dates as an inclusive range. */
 		const startDateString = format(startDate, 'MM/dd/yyyy');
-		const endDateString = format(addDays(endDate, 1), 'MM/dd/yyyy');
+		const endDateString = format(endDate, 'MM/dd/yyyy');
 
-		/* Calulating which accounts to fetch data from */
-		const accounts = this.getConfigAccounts();
-
-		/* Figure out which account has the service point number */
-		const account = accounts.find((account)=>{
-			return account.servicePoints.some((servicePoint)=> servicePoint.servicePointNumber === servicePointNumber);
+		const { account, target } = this.targetForServicePoint(servicePointNumber);
+		const res = await fetch(buildUsageUrl('Daily', target, { startDate: startDateString, endDate: endDateString }), {
+			method: 'GET',
+			headers: this.authHeaders()
 		});
 
-		if(!account){
-			throw new Error(`Could not find account with service point number ${servicePointNumber}`);
+		if(res.status !== 200){
+			throw new Error(`Failed to get daily data for account ${account.number}: ${res.status} ${res.statusText} ${redactSecrets(await res.text())}`);
 		}
 
-		/* Creating a request for each account */
-		const res = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${account.number}/Daily?OPCO=${account.company}&StartDate=${startDateString}&EndDate=${endDateString}&intervalBehavior=Automatic&ServicePointNumber=${servicePointNumber}`, {
-			method: 'GET',
-			headers: {
-				Authorization: `Bearer ${this.jwt}`
-			}
-		});
+		const data = await res.json();
+		const graphData = readUsageGraph(data) as API.GetDailyGraphData | null;
 
-		const data = await res.json() as API.DailyDataResponse;
-
-		/* Aged-out or malformed ranges come back as HTTP 200 with HasData: false and Data.Data: null. */
-		if(!data.Data.HasData || !data.Data.Data){
+		/* Aged-out or malformed ranges come back with no graph. */
+		if(!graphData?.series?.weekdayUsage || !graphData.series.weekendUsage){
 			return {
 				accountNumber: account.number,
 				hasData: false,
@@ -422,17 +315,23 @@ export class SouthernCompanyAPI{
 			};
 		}
 
-		const graphData = JSON.parse(data.Data.Data) as API.GetDailyGraphData;
-
 		const combinedCost = [
-			...graphData.series.weekdayCost.data,
-			...graphData.series.weekendCost.data
+			...(graphData.series.weekdayCost?.data || []),
+			...(graphData.series.weekendCost?.data || [])
 		];
 
 		const combinedUsage = [
-			...graphData.series.weekdayUsage.data,
-			...graphData.series.weekendUsage.data
+			...(graphData.series.weekdayUsage.data || []),
+			...(graphData.series.weekendUsage.data || [])
 		];
+
+		if(!combinedUsage.length){
+			return {
+				accountNumber: account.number,
+				hasData: false,
+				data: []
+			};
+		}
 
 		const combinedUsageCost = combinedUsage
 		.sort((a, b) => a.x - b.x)
@@ -451,7 +350,7 @@ export class SouthernCompanyAPI{
 			accountNumber: account.number,
 			hasData: true,
 			data: combinedUsageCost.map((d)=>({
-				date: parseISO(d.date),
+				date: parseUsageDate(d.date),
 				kWh: d.kWh,
 				cost: d.cost
 			}))
@@ -469,34 +368,25 @@ export class SouthernCompanyAPI{
 			throw new Error('Could not get hourly data: Not Logged In');
 		}
 
-		/* Formatting dates to MM/DD/YYYY. EndDate is exclusive on the API, so add a day to make this method's endDate argument inclusive. */
+		/* The portal treats the hourly end date as exclusive, so add a day to keep this argument inclusive. */
 		const startDateString = format(startDate, 'MM/dd/yyyy');
 		const endDateString = format(addDays(endDate, 1), 'MM/dd/yyyy');
 
-		/* Calulating which accounts to fetch data from */
-		const accounts = this.getConfigAccounts();
-
-		/* Figure out which account has the service point number */
-		const account = accounts.find((account)=>{
-			return account.servicePoints.some((servicePoint)=> servicePoint.servicePointNumber === servicePointNumber);
+		const { account, target } = this.targetForServicePoint(servicePointNumber);
+		const res = await fetch(buildUsageUrl('Hourly', target, { startDate: startDateString, endDate: endDateString }), {
+			method: 'GET',
+			headers: this.authHeaders()
 		});
 
-		if(!account){
-			throw new Error(`Could not find account with service point number ${servicePointNumber}`);
+		if(res.status !== 200){
+			throw new Error(`Failed to get hourly data for account ${account.number}: ${res.status} ${res.statusText} ${redactSecrets(await res.text())}`);
 		}
 
-		/* Creating a request for each account */
-		const res = await fetch(`https://customerservice2api.southerncompany.com/api/MyPowerUsage/MPUData/${account.number}/Hourly?OPCO=${account.company}&StartDate=${startDateString}&EndDate=${endDateString}&intervalBehavior=Automatic&ServicePointNumber=${servicePointNumber}`, {
-			method: 'GET',
-			headers: {
-				Authorization: `Bearer ${this.jwt}`
-			}
-		});
+		const data = await res.json();
+		const graphData = readUsageGraph(data) as API.GetHourlyGraphData | null;
 
-		const data = await res.json() as API.HourlyDataResponse;
-
-		/* Aged-out or malformed ranges come back as HTTP 200 with HasData: false and Data.Data: null. */
-		if(!data.Data.HasData || !data.Data.Data){
+		/* Aged-out or malformed ranges come back with no graph. */
+		if(!graphData?.series?.usage?.data?.length){
 			return {
 				accountNumber: account.number,
 				hasData: false,
@@ -504,13 +394,11 @@ export class SouthernCompanyAPI{
 			};
 		}
 
-		const graphData = JSON.parse(data.Data.Data) as API.GetHourlyGraphData;
-
 		const usageCost = graphData.series.usage.data
 		.sort((a, b) => a.x - b.x)
 		.map(({name, y, x})=>{
-			const costEntry = graphData.series.cost.data.find(cost => cost.x === x);
-			const tempEntry = graphData.series.temp.data.find(temp => temp.x === x);
+			const costEntry = graphData.series.cost?.data?.find(cost => cost.x === x);
+			const tempEntry = graphData.series.temp?.data?.find(temp => temp.x === x);
 
 			return {
 				date: name,
@@ -524,11 +412,46 @@ export class SouthernCompanyAPI{
 			accountNumber: account.number,
 			hasData: true,
 			data: usageCost.map((d)=>({
-				date: parseISO(d.date),
+				date: parseUsageDate(d.date),
 				kWh: d.kWh,
 				cost: d.cost,
 				temp: d.temp
 			}))
 		};
 	}
+}
+
+function arrayFrom(body: any): any[] {
+	const data = body?.data ?? body?.Data;
+	return Array.isArray(data) ? data : [];
+}
+
+function safePath(url: string): string {
+	try {
+		const parsed = new URL(url);
+		return `${parsed.host}${parsed.pathname}`;
+	}
+	catch {
+		return url.split('?')[0];
+	}
+}
+
+function parseUsageDate(value: string): Date {
+	if(!value){
+		return new Date(NaN);
+	}
+
+	const iso = parseISO(value);
+	if(isValid(iso)){
+		return iso;
+	}
+
+	for(const pattern of ['MM/dd/yyyy HH:mm:ss', 'MM/dd/yyyy HH:mm', 'MM/dd/yyyy']){
+		const parsed = parse(value, pattern, new Date());
+		if(isValid(parsed)){
+			return parsed;
+		}
+	}
+
+	return new Date(value);
 }

@@ -12,11 +12,14 @@ const config: SouthernCompanyConfig = {
 /* Connecting to API */
 let API: SouthernCompanyAPI;
 
+const describeLive = process.env.username && process.env.password ? describe : describe.skip;
+
 /* Setting up API */
 beforeAll(() => {
 	API = new SouthernCompanyAPI(config);
 });
 
+describeLive('live single account', ()=>{
 test('grabs list of monthly data', async ()=>{
 	const data = await API.getMonthlyData();
 
@@ -24,4 +27,5 @@ test('grabs list of monthly data', async ()=>{
 	expect(data[0]).toHaveProperty('accountNumber');
 	expect(data[0]).toHaveProperty('data');
 	expect(data[0].data.length).toBeGreaterThan(0);
+});
 });

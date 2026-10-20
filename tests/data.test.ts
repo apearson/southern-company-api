@@ -15,7 +15,10 @@ beforeAll(() => {
 	API = new SouthernCompanyAPI(config);
 });
 
+const describeLive = process.env.username && process.env.password ? describe : describe.skip;
+
 /* Tests */
+describeLive('live usage data', ()=>{
 test('grabs list of monthly data', async ()=>{
 	const data = await API.getMonthlyData();
 
@@ -75,4 +78,5 @@ test('hourly data with startDate == endDate returns a single day', async ()=>{
 	if(returnedData.hasData){
 		expect(returnedData.data.length).toBe(24);
 	}
+});
 });

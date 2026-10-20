@@ -15,10 +15,14 @@ beforeAll(() => {
 	API = new SouthernCompanyAPI(config);
 });
 
+const describeLive = process.env.username && process.env.password ? describe : describe.skip;
+
 /* Tests */
+describeLive('live account data', ()=>{
 test('grabs a list of accounts', async ()=>{
 	const accounts = await API.getAccounts();
 
 	expect(accounts).toHaveProperty('length');
 	expect(accounts.length).toBeGreaterThan(0);
+});
 });
